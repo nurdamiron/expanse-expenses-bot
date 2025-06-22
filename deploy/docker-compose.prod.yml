@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: expanse-bot
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - redis
+      - mysql
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    networks:
+      - bot-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  mysql:
+    image: mysql:8.0
+    container_name: expanse-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-expanse_bot}
+      MYSQL_USER: ${DB_USERNAME:-botuser}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-botpassword}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - bot-network
+    ports:
+      - "127.0.0.1:3306:3306"
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  redis:
+    image: redis:7-alpine
+    container_name: expanse-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - bot-network
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: redis-server --appendonly yes
+
+  # Optional: Nginx for webhook support
+  nginx:
+    image: nginx:alpine
+    container_name: expanse-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/ssl:/etc/nginx/ssl:ro
+    networks:
+      - bot-network
+    depends_on:
+      - webhook
+
+  # Optional: Webhook handler
+  webhook:
+    build: 
+      context: .
+      dockerfile: Dockerfile.webhook
+    container_name: expanse-webhook
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:9000:9000"
+    networks:
+      - bot-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  mysql-data:
+  redis-data:
+
+networks:
+  bot-network:
+    driver: bridge
