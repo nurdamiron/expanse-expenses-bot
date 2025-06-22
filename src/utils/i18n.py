@@ -1,6 +1,9 @@
 import yaml
+import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class I18n:
