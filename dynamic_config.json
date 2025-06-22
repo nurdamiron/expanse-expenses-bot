@@ -1,0 +1,53 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-06-22T00:00:00Z",
+  "texts": {
+    "welcome": "👋 Добро пожаловать в Expanse Bot!\n\nЯ помогу вам вести учет расходов и доходов.",
+    "help": "📚 Доступные команды:\n\n/start - Начать работу\n/help - Показать помощь\n/categories - Управление категориями\n/stats - Статистика\n/export - Экспорт данных",
+    "maintenance": "🔧 Бот временно на техническом обслуживании. Пожалуйста, попробуйте позже."
+  },
+  "keyboards": {
+    "main_menu": {
+      "rows": [
+        [
+          {"text": "💰 Добавить доход", "callback_data": "income_add"},
+          {"text": "💸 Добавить расход", "callback_data": "expense_add"}
+        ],
+        [
+          {"text": "📊 Статистика", "callback_data": "stats"},
+          {"text": "📁 Категории", "callback_data": "categories"}
+        ],
+        [
+          {"text": "📤 Экспорт", "callback_data": "export"},
+          {"text": "⚙️ Настройки", "callback_data": "settings"}
+        ]
+      ]
+    },
+    "stats_period": {
+      "rows": [
+        [
+          {"text": "📅 Сегодня", "callback_data": "stats_today"},
+          {"text": "📅 Вчера", "callback_data": "stats_yesterday"}
+        ],
+        [
+          {"text": "📅 Неделя", "callback_data": "stats_week"},
+          {"text": "📅 Месяц", "callback_data": "stats_month"}
+        ],
+        [
+          {"text": "🔙 Назад", "callback_data": "back_to_menu"}
+        ]
+      ]
+    }
+  },
+  "features": {
+    "enable_ocr": true,
+    "enable_export": true,
+    "enable_notifications": true,
+    "maintenance_mode": false
+  },
+  "limits": {
+    "max_transactions_per_day": 50,
+    "max_image_size_mb": 20,
+    "rate_limit_per_minute": 30
+  }
+}
