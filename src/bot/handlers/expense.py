@@ -4,6 +4,7 @@ from datetime import datetime
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
+from aiogram.filters import StateFilter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_session
@@ -28,7 +29,7 @@ transaction_service = TransactionService()
 expense_parser = ExpenseParser()
 
 
-@router.message(ExpenseStates.waiting_for_amount, F.text & ~F.text.startswith('/'))
+@router.message(StateFilter(ExpenseStates.waiting_for_amount), F.text & ~F.text.startswith('/'))
 async def process_expense_input(message: Message, state: FSMContext):
     """Process expense input when waiting for expense"""
     telegram_id = message.from_user.id
@@ -58,11 +59,12 @@ async def process_expense_input(message: Message, state: FSMContext):
         locale = user.language_code
         
         # Store parsed data in state
+        transaction_date = parsed['date'] or datetime.now()
         await state.update_data(
             amount=str(parsed['amount']),
             currency=parsed['currency'],
             description=parsed['description'],
-            transaction_date=parsed['date'] or datetime.now(),
+            transaction_date=transaction_date.isoformat() if isinstance(transaction_date, datetime) else transaction_date,
             user_currency=user.primary_currency
         )
         
@@ -110,7 +112,7 @@ async def process_expense_input(message: Message, state: FSMContext):
         await state.set_state(ExpenseStates.waiting_for_category)
 
 
-@router.callback_query(F.data.startswith("quick_category:"), ExpenseStates.waiting_for_category)
+@router.callback_query(F.data.startswith("quick_category:"), StateFilter(ExpenseStates.waiting_for_category))
 async def process_quick_category(callback: CallbackQuery, state: FSMContext):
     """Process quick category selection"""
     category_key = callback.data.split(":")[1]
@@ -167,7 +169,7 @@ async def process_quick_category(callback: CallbackQuery, state: FSMContext):
         await state.clear()
 
 
-@router.callback_query(F.data == "all_categories", ExpenseStates.waiting_for_category)
+@router.callback_query(F.data == "all_categories", StateFilter(ExpenseStates.waiting_for_category))
 async def show_all_categories(callback: CallbackQuery, state: FSMContext):
     """Show all user categories"""
     telegram_id = callback.from_user.id
@@ -189,7 +191,7 @@ async def show_all_categories(callback: CallbackQuery, state: FSMContext):
         )
 
 
-@router.callback_query(F.data.startswith("select_category:"), ExpenseStates.waiting_for_category)
+@router.callback_query(F.data.startswith("select_category:"), StateFilter(ExpenseStates.waiting_for_category))
 async def process_category_selection(callback: CallbackQuery, state: FSMContext):
     """Process category selection"""
     category_id = callback.data.split(":")[1]
@@ -247,7 +249,7 @@ async def process_category_selection(callback: CallbackQuery, state: FSMContext)
         await state.clear()
 
 
-@router.callback_query(F.data == "edit_transaction", ExpenseStates.waiting_for_category)
+@router.callback_query(F.data == "edit_transaction", StateFilter(ExpenseStates.waiting_for_category))
 async def edit_transaction(callback: CallbackQuery, state: FSMContext):
     """Edit transaction before saving"""
     telegram_id = callback.from_user.id

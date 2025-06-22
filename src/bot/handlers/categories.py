@@ -2,6 +2,7 @@ from typing import Optional
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
+from aiogram.filters import StateFilter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_session
@@ -61,7 +62,7 @@ async def cmd_categories(message: Message, state: FSMContext):
         await state.set_state(CategoryStates.viewing_categories)
 
 
-@router.callback_query(F.data.startswith("manage_category:"), CategoryStates.viewing_categories)
+@router.callback_query(F.data.startswith("manage_category:"))
 async def manage_category(callback: CallbackQuery, state: FSMContext):
     """Show category management options"""
     category_id = callback.data.split(":")[1]
@@ -109,7 +110,7 @@ async def start_new_category(callback: CallbackQuery, state: FSMContext):
     await state.set_state(CategoryStates.entering_name_ru)
 
 
-@router.message(CategoryStates.entering_name_ru)
+@router.message(StateFilter(CategoryStates.entering_name_ru))
 async def process_category_name_ru(message: Message, state: FSMContext):
     """Process Russian category name"""
     telegram_id = message.from_user.id
@@ -140,7 +141,7 @@ async def process_category_name_ru(message: Message, state: FSMContext):
     await state.set_state(CategoryStates.entering_name_kz)
 
 
-@router.message(CategoryStates.entering_name_kz)
+@router.message(StateFilter(CategoryStates.entering_name_kz))
 async def process_category_name_kz(message: Message, state: FSMContext):
     """Process Kazakh category name"""
     telegram_id = message.from_user.id
@@ -171,7 +172,7 @@ async def process_category_name_kz(message: Message, state: FSMContext):
     await state.set_state(CategoryStates.selecting_icon)
 
 
-@router.callback_query(F.data.startswith("icon:"), CategoryStates.selecting_icon)
+@router.callback_query(F.data.startswith("icon:"), StateFilter(CategoryStates.selecting_icon))
 async def process_category_icon(callback: CallbackQuery, state: FSMContext):
     """Process category icon selection"""
     icon = callback.data.split(":")[1]
@@ -252,7 +253,7 @@ async def confirm_delete_category(callback: CallbackQuery, state: FSMContext):
         await state.set_state(CategoryStates.confirming_delete)
 
 
-@router.callback_query(F.data == "confirm", CategoryStates.confirming_delete)
+@router.callback_query(F.data == "confirm", StateFilter(CategoryStates.confirming_delete))
 async def delete_category(callback: CallbackQuery, state: FSMContext):
     """Delete category"""
     telegram_id = callback.from_user.id

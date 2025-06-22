@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta
 from aiogram import Router, F
+from aiogram.filters import StateFilter
 from aiogram.types import Message, CallbackQuery, BufferedInputFile, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
@@ -68,7 +69,7 @@ async def cmd_export(message: Message, state: FSMContext):
     await state.set_state(ExportStates.selecting_period)
 
 
-@router.callback_query(F.data.startswith("export_period:"), ExportStates.selecting_period)
+@router.callback_query(F.data.startswith("export_period:"), StateFilter(ExportStates.selecting_period))
 async def process_period_selection(callback: CallbackQuery, state: FSMContext):
     """Process period selection"""
     period = callback.data.split(":")[1]
@@ -140,7 +141,7 @@ async def process_period_selection(callback: CallbackQuery, state: FSMContext):
     await state.set_state(ExportStates.selecting_format)
 
 
-@router.callback_query(F.data.startswith("export_format:"), ExportStates.selecting_format)
+@router.callback_query(F.data.startswith("export_format:"), StateFilter(ExportStates.selecting_format))
 async def process_format_selection(callback: CallbackQuery, state: FSMContext):
     """Process format selection"""
     format_type = callback.data.split(":")[1]
@@ -200,7 +201,7 @@ async def process_format_selection(callback: CallbackQuery, state: FSMContext):
     await state.update_data(selected_categories=[])
 
 
-@router.callback_query(F.data.startswith("export_category:"), ExportStates.selecting_categories)
+@router.callback_query(F.data.startswith("export_category:"), StateFilter(ExportStates.selecting_categories))
 async def toggle_category_selection(callback: CallbackQuery, state: FSMContext):
     """Toggle category selection"""
     category_id = callback.data.split(":")[1]
@@ -218,14 +219,14 @@ async def toggle_category_selection(callback: CallbackQuery, state: FSMContext):
     await state.update_data(selected_categories=selected)
 
 
-@router.callback_query(F.data == "export_categories:all", ExportStates.selecting_categories)
+@router.callback_query(F.data == "export_categories:all", StateFilter(ExportStates.selecting_categories))
 async def select_all_categories(callback: CallbackQuery, state: FSMContext):
     """Select all categories for export"""
     await state.update_data(selected_categories=None)  # None means all
     await generate_export(callback, state)
 
 
-@router.callback_query(F.data == "export_categories:done", ExportStates.selecting_categories)
+@router.callback_query(F.data == "export_categories:done", StateFilter(ExportStates.selecting_categories))
 async def finish_category_selection(callback: CallbackQuery, state: FSMContext):
     """Finish category selection and generate export"""
     data = await state.get_data()

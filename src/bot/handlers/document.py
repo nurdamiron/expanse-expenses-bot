@@ -4,6 +4,7 @@ from typing import Optional
 from decimal import Decimal
 from datetime import datetime
 from aiogram import Router, F
+from aiogram.filters import StateFilter
 from aiogram.types import Message, Document, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
@@ -396,7 +397,7 @@ async def process_receipt_document(message: Message, state: FSMContext):
         await state.clear()
 
 
-@router.callback_query(F.data == "confirm_duplicate_document", ReceiptStates.confirming_duplicate)
+@router.callback_query(F.data == "confirm_duplicate_document", StateFilter(ReceiptStates.confirming_duplicate))
 async def confirm_duplicate_document(callback: CallbackQuery, state: FSMContext):
     """Confirm saving duplicate transaction from document"""
     telegram_id = callback.from_user.id
@@ -458,7 +459,7 @@ async def confirm_duplicate_document(callback: CallbackQuery, state: FSMContext)
         await state.clear()
 
 
-@router.callback_query(F.data == "cancel_duplicate_document", ReceiptStates.confirming_duplicate)
+@router.callback_query(F.data == "cancel_duplicate_document", StateFilter(ReceiptStates.confirming_duplicate))
 async def cancel_duplicate_document(callback: CallbackQuery, state: FSMContext):
     """Cancel saving duplicate transaction from document"""
     telegram_id = callback.from_user.id

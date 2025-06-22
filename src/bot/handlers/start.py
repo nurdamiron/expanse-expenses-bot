@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
 
@@ -44,7 +44,7 @@ async def cmd_start(message: Message, state: FSMContext):
             )
 
 
-@router.callback_query(F.data.startswith("lang:"), RegistrationStates.choosing_language)
+@router.callback_query(F.data.startswith("lang:"), StateFilter(RegistrationStates.choosing_language))
 async def process_language_selection(callback: CallbackQuery, state: FSMContext):
     """Process language selection for new users"""
     language = callback.data.split(":")[1]

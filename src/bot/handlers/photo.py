@@ -4,6 +4,7 @@ from typing import Optional
 from decimal import Decimal
 from datetime import datetime
 from aiogram import Router, F
+from aiogram.filters import StateFilter
 from aiogram.types import Message, CallbackQuery, PhotoSize
 from aiogram.fsm.context import FSMContext
 
@@ -332,7 +333,7 @@ async def process_receipt_photo(message: Message, state: FSMContext):
         await state.clear()
 
 
-@router.callback_query(F.data.startswith("currency:"), ReceiptStates.selecting_currency)
+@router.callback_query(F.data.startswith("currency:"), StateFilter(ReceiptStates.selecting_currency))
 async def process_currency_selection(callback: CallbackQuery, state: FSMContext):
     """Process currency save option selection"""
     option = callback.data.split(":")[1]
@@ -355,7 +356,7 @@ async def process_currency_selection(callback: CallbackQuery, state: FSMContext)
         await state.set_state(ReceiptStates.selecting_category)
 
 
-@router.callback_query(F.data.startswith("quick_category:"), ReceiptStates.selecting_category)
+@router.callback_query(F.data.startswith("quick_category:"), StateFilter(ReceiptStates.selecting_category))
 async def process_receipt_category(callback: CallbackQuery, state: FSMContext):
     """Process category selection for receipt"""
     category_key = callback.data.split(":")[1]
@@ -425,7 +426,7 @@ async def process_receipt_category(callback: CallbackQuery, state: FSMContext):
         await state.clear()
 
 
-@router.callback_query(F.data == "confirm_duplicate_photo", ReceiptStates.confirming_duplicate)
+@router.callback_query(F.data == "confirm_duplicate_photo", StateFilter(ReceiptStates.confirming_duplicate))
 async def confirm_duplicate_photo(callback: CallbackQuery, state: FSMContext):
     """Confirm saving duplicate transaction from photo"""
     telegram_id = callback.from_user.id
@@ -482,7 +483,7 @@ async def confirm_duplicate_photo(callback: CallbackQuery, state: FSMContext):
         await state.clear()
 
 
-@router.callback_query(F.data == "cancel_duplicate_photo", ReceiptStates.confirming_duplicate)
+@router.callback_query(F.data == "cancel_duplicate_photo", StateFilter(ReceiptStates.confirming_duplicate))
 async def cancel_duplicate_photo(callback: CallbackQuery, state: FSMContext):
     """Cancel saving duplicate transaction from photo"""
     telegram_id = callback.from_user.id

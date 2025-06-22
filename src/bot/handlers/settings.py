@@ -1,5 +1,6 @@
 from typing import Optional
 from aiogram import Router, F
+from aiogram.filters import StateFilter
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
@@ -77,7 +78,7 @@ async def cmd_settings(message: Message, state: FSMContext):
         await state.set_state(SettingsStates.main_menu)
 
 
-@router.callback_query(F.data == "settings:language", SettingsStates.main_menu)
+@router.callback_query(F.data == "settings:language", StateFilter(SettingsStates.main_menu))
 async def show_language_settings(callback: CallbackQuery, state: FSMContext):
     """Show language selection"""
     telegram_id = callback.from_user.id
@@ -126,7 +127,7 @@ async def show_language_settings(callback: CallbackQuery, state: FSMContext):
         await state.set_state(SettingsStates.changing_language)
 
 
-@router.callback_query(F.data.startswith("set_language:"), SettingsStates.changing_language)
+@router.callback_query(F.data.startswith("set_language:"), StateFilter(SettingsStates.changing_language))
 async def set_language(callback: CallbackQuery, state: FSMContext):
     """Set new language"""
     new_language = callback.data.split(":")[1]
@@ -152,7 +153,7 @@ async def set_language(callback: CallbackQuery, state: FSMContext):
         await cmd_settings(callback.message, state)
 
 
-@router.callback_query(F.data == "settings:currency", SettingsStates.main_menu)
+@router.callback_query(F.data == "settings:currency", StateFilter(SettingsStates.main_menu))
 async def show_currency_settings(callback: CallbackQuery, state: FSMContext):
     """Show currency selection"""
     telegram_id = callback.from_user.id
@@ -197,7 +198,7 @@ async def show_currency_settings(callback: CallbackQuery, state: FSMContext):
         await state.set_state(SettingsStates.changing_currency)
 
 
-@router.callback_query(F.data.startswith("set_primary_currency:"), SettingsStates.changing_currency)
+@router.callback_query(F.data.startswith("set_primary_currency:"), StateFilter(SettingsStates.changing_currency))
 async def set_primary_currency(callback: CallbackQuery, state: FSMContext):
     """Set user's primary currency"""
     currency = callback.data.split(":")[1]
@@ -216,7 +217,7 @@ async def set_primary_currency(callback: CallbackQuery, state: FSMContext):
         await cmd_settings(callback.message, state)
 
 
-@router.callback_query(F.data == "settings:notifications", SettingsStates.main_menu)
+@router.callback_query(F.data == "settings:notifications", StateFilter(SettingsStates.main_menu))
 async def toggle_notifications(callback: CallbackQuery, state: FSMContext):
     """Toggle notifications on/off"""
     telegram_id = callback.from_user.id
@@ -247,7 +248,7 @@ async def toggle_notifications(callback: CallbackQuery, state: FSMContext):
         await cmd_settings(callback.message, state)
 
 
-@router.callback_query(F.data == "settings:limits", SettingsStates.main_menu)
+@router.callback_query(F.data == "settings:limits", StateFilter(SettingsStates.main_menu))
 async def show_limits_settings(callback: CallbackQuery, state: FSMContext):
     """Show spending limits settings"""
     telegram_id = callback.from_user.id
@@ -259,7 +260,7 @@ async def show_limits_settings(callback: CallbackQuery, state: FSMContext):
     await callback.answer(message_text, show_alert=True)
 
 
-@router.callback_query(F.data == "settings:timezone", SettingsStates.main_menu)
+@router.callback_query(F.data == "settings:timezone", StateFilter(SettingsStates.main_menu))
 async def show_timezone_settings(callback: CallbackQuery, state: FSMContext):
     """Show timezone selection"""
     telegram_id = callback.from_user.id
@@ -310,7 +311,7 @@ async def show_timezone_settings(callback: CallbackQuery, state: FSMContext):
         await state.set_state(SettingsStates.changing_timezone)
 
 
-@router.callback_query(F.data.startswith("set_timezone:"), SettingsStates.changing_timezone)
+@router.callback_query(F.data.startswith("set_timezone:"), StateFilter(SettingsStates.changing_timezone))
 async def set_timezone(callback: CallbackQuery, state: FSMContext):
     """Set new timezone"""
     timezone = callback.data.split(":", 1)[1]
@@ -329,7 +330,7 @@ async def set_timezone(callback: CallbackQuery, state: FSMContext):
         await cmd_settings(callback.message, state)
 
 
-@router.callback_query(F.data == "settings:clear_data", SettingsStates.main_menu)
+@router.callback_query(F.data == "settings:clear_data", StateFilter(SettingsStates.main_menu))
 async def show_clear_data_confirmation(callback: CallbackQuery, state: FSMContext):
     """Show clear data confirmation dialog"""
     telegram_id = callback.from_user.id
@@ -397,7 +398,7 @@ async def show_clear_data_confirmation(callback: CallbackQuery, state: FSMContex
         await state.set_state(SettingsStates.confirming_clear_data)
 
 
-@router.callback_query(F.data == "confirm_clear_data", SettingsStates.confirming_clear_data)
+@router.callback_query(F.data == "confirm_clear_data", StateFilter(SettingsStates.confirming_clear_data))
 async def confirm_clear_data(callback: CallbackQuery, state: FSMContext):
     """Clear all user data after confirmation"""
     telegram_id = callback.from_user.id
