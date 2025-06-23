@@ -25,14 +25,23 @@ category_service = CategoryService()
 
 
 @router.message(F.text == "/categories")
+@router.message(F.text.startswith("📂"))
 async def cmd_categories(message: Message, state: FSMContext):
     """Show categories management menu"""
-    telegram_id = message.from_user.id
+    # Handle both Message and CallbackQuery by extracting the actual message
+    if hasattr(message, 'message'):
+        # This is a CallbackQuery, get the actual message
+        actual_message = message.message
+        telegram_id = message.from_user.id
+    else:
+        # This is a regular Message
+        actual_message = message
+        telegram_id = message.from_user.id
     
     async with get_session() as session:
         user = await user_service.get_user_by_telegram_id(session, telegram_id)
         if not user:
-            await message.answer("/start")
+            await actual_message.answer("/start")
             return
         
         locale = user.language_code
@@ -51,7 +60,7 @@ async def cmd_categories(message: Message, state: FSMContext):
         for category in categories:
             response += f"{category.icon} {category.get_name(locale)}\n"
         
-        await message.answer(
+        await actual_message.answer(
             response,
             parse_mode="HTML",
             reply_markup=get_categories_keyboard(

@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     aws_secret_access_key: Optional[str] = Field(None, env="AWS_SECRET_ACCESS_KEY")
     aws_region: str = Field("eu-north-1", env="AWS_REGION")
     s3_bucket_name: Optional[str] = Field(None, env="S3_BUCKET_NAME")
+    s3_receipts_prefix: str = Field("receipts/", env="S3_RECEIPTS_PREFIX")
+    s3_exports_prefix: str = Field("exports/", env="S3_EXPORTS_PREFIX")
     
     # Currency API Keys
     fixer_api_key: Optional[str] = Field(None, env="FIXER_API_KEY")
@@ -131,7 +133,7 @@ class Settings(BaseSettings):
     
     @validator("default_currency")
     def validate_currency(cls, v):
-        supported = ["KZT", "RUB", "USD", "EUR", "CNY", "KRW", "TRY"]
+        supported = ["KZT", "RUB", "USD", "EUR", "CNY", "KRW", "TRY", "MYR"]
         if v not in supported:
             raise ValueError(f"Default currency must be one of {supported}")
         return v

@@ -23,7 +23,8 @@ class ExpenseParser:
         '€': 'EUR',
         '¥': 'CNY',
         '₩': 'KRW',
-        '₺': 'TRY'
+        '₺': 'TRY',
+        'RM': 'MYR'  # Malaysian Ringgit
     }
     
     # Currency words
@@ -40,7 +41,9 @@ class ExpenseParser:
         'юаней': 'CNY',
         'вон': 'KRW',
         'лира': 'TRY',
-        'лир': 'TRY'
+        'лир': 'TRY',
+        'ринггит': 'MYR',
+        'myr': 'MYR'
     }
     
     def parse_expense(self, text: str) -> Optional[Dict[str, any]]:

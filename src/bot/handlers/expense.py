@@ -145,7 +145,8 @@ async def process_quick_category(callback: CallbackQuery, state: FSMContext):
             description=data.get('description'),
             transaction_date=data['transaction_date'],
             amount_primary=amount_primary,
-            exchange_rate=exchange_rate
+            exchange_rate=exchange_rate,
+            company_id=user.active_company_id  # Add company_id support
         )
         
         await session.commit()
@@ -224,7 +225,8 @@ async def process_category_selection(callback: CallbackQuery, state: FSMContext)
             description=data.get('description'),
             transaction_date=data['transaction_date'],
             amount_primary=amount_primary,
-            exchange_rate=exchange_rate
+            exchange_rate=exchange_rate,
+            company_id=user.active_company_id  # Add company_id support
         )
         
         await session.commit()

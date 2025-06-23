@@ -15,6 +15,8 @@ from .categories import (
     get_default_categories_keyboard
 )
 
+from .main import get_main_keyboard
+
 __all__ = [
     # Common keyboards
     "get_language_keyboard",
@@ -29,5 +31,8 @@ __all__ = [
     "get_categories_keyboard",
     "get_category_actions_keyboard",
     "get_category_icons_keyboard",
-    "get_default_categories_keyboard"
+    "get_default_categories_keyboard",
+    
+    # Main keyboard
+    "get_main_keyboard"
 ]

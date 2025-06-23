@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     libgomp1 \
     wget \
     poppler-utils \
+    libpoppler-cpp-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -26,6 +27,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
+
+# Ensure fonts directory exists with proper font
+RUN mkdir -p assets/fonts && \
+    if [ ! -f assets/fonts/NotoSans-Regular.ttf ]; then \
+        wget -O assets/fonts/NotoSans-Regular.ttf https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf || true; \
+    fi
 
 # Create non-root user
 RUN useradd -m -u 1000 botuser && chown -R botuser:botuser /app

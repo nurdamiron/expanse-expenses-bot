@@ -1,6 +1,7 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 
 from src.database.models import User
 
@@ -15,7 +16,9 @@ class UserService:
     ) -> Optional[User]:
         """Get user by telegram ID"""
         result = await session.execute(
-            select(User).where(User.telegram_id == telegram_id)
+            select(User)
+            .options(joinedload(User.active_company))
+            .where(User.telegram_id == telegram_id)
         )
         return result.scalar_one_or_none()
     

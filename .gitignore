@@ -171,3 +171,4 @@ docker-compose.override.yml
 test_*.py
 !tests/test_*.py
 FETCH_HEAD
+# Keep fonts directory

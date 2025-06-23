@@ -49,6 +49,13 @@ async def main():
     
     # Setup middlewares
     from src.bot.middlewares.throttling import ThrottlingMiddleware
+    from src.bot.middlewares.bot_filter import BotFilterMiddleware
+    
+    # Add bot filter middleware first (to filter out bot messages)
+    dp.message.middleware(BotFilterMiddleware())
+    dp.callback_query.middleware(BotFilterMiddleware())
+    
+    # Add throttling middleware
     dp.message.middleware(ThrottlingMiddleware())
     dp.callback_query.middleware(ThrottlingMiddleware())
     

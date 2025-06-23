@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
 
 from src.database import get_session, User, Category
+from src.database.models import Company
 from src.bot.keyboards import get_language_keyboard, get_confirm_keyboard
 from src.bot.keyboards.main import get_main_keyboard
 from src.bot.states import RegistrationStates
@@ -30,10 +31,21 @@ async def cmd_start(message: Message, state: FSMContext):
         if user:
             # Existing user
             locale = user.language_code
+            
+            # Get active company name if any
+            company_name = None
+            if user.active_company_id:
+                result = await session.execute(
+                    select(Company).where(Company.id == user.active_company_id)
+                )
+                company = result.scalar_one_or_none()
+                if company:
+                    company_name = company.name
+            
             await message.answer(
                 i18n.get("welcome.greeting", locale),
                 parse_mode="HTML",
-                reply_markup=get_main_keyboard(locale)
+                reply_markup=get_main_keyboard(locale, company_name)
             )
         else:
             # New user - show language selection

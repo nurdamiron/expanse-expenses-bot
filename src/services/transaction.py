@@ -23,6 +23,7 @@ class TransactionService:
         transaction_date: Optional[datetime] = None,
         amount_primary: Optional[Decimal] = None,
         exchange_rate: Optional[Decimal] = None,
+        company_id: Optional[str] = None,
         receipt_image_url: Optional[str] = None,
         ocr_confidence: Optional[Decimal] = None,
         metadata: Optional[dict] = None
@@ -48,6 +49,7 @@ class TransactionService:
             description=description,
             merchant=merchant,
             transaction_date=transaction_date,
+            company_id=company_id,
             receipt_image_url=receipt_image_url,
             ocr_confidence=ocr_confidence,
             metadata=metadata
@@ -55,6 +57,26 @@ class TransactionService:
         
         session.add(transaction)
         await session.flush()
+        
+        # If this is a company transaction, create company_transaction record
+        if company_id:
+            from src.services.company import CompanyService
+            company_service = CompanyService()
+            
+            # Check if approval is required
+            requires_approval = await company_service.check_approval_required(
+                session, company_id, amount_primary, category_id
+            )
+            
+            # Create company transaction record
+            await company_service.create_company_transaction(
+                session=session,
+                transaction_id=transaction.id,
+                company_id=company_id,
+                requires_approval=requires_approval,
+                auto_approved_by=user_id if not requires_approval else None
+            )
+        
         return transaction
     
     async def get_transaction_by_id(

@@ -22,6 +22,7 @@ from src.services.transaction import TransactionService
 # Import OCRService
 from src.services.ocr import OCRService
 from src.services.duplicate_detector import duplicate_detector
+from src.services.s3_storage import S3StorageService
 from src.utils.text_parser import ExpenseParser
 from src.utils.caption_parser import CaptionParser
 from src.utils.clarification import ClarificationHelper
@@ -37,6 +38,7 @@ category_service = CategoryService()
 transaction_service = TransactionService()
 # Always create OCRService - it will use OpenAI Vision if configured
 ocr_service = OCRService()
+s3_service = S3StorageService()
 expense_parser = ExpenseParser()
 caption_parser = CaptionParser()
 clarification_helper = ClarificationHelper()
@@ -70,6 +72,31 @@ async def process_receipt_photo(message: Message, state: FSMContext):
     
     # Check if OCR is enabled
     if not settings.enable_ocr or not ocr_service:
+        # Download and upload photo even without OCR
+        photo: PhotoSize = message.photo[-1]
+        bot = message.bot
+        file = await bot.get_file(photo.file_id)
+        photo_bytes = io.BytesIO()
+        await bot.download_file(file.file_path, photo_bytes)
+        photo_bytes.seek(0)
+        
+        # Upload photo to S3 for storage
+        receipt_image_url = None
+        if s3_service.enabled:
+            try:
+                receipt_image_url = await s3_service.upload_receipt(
+                    user_id=user.id,
+                    file_data=photo_bytes.getvalue(),
+                    content_type='image/jpeg'
+                )
+                if receipt_image_url:
+                    logger.info(f"[S3] Receipt uploaded (no OCR): {receipt_image_url}")
+                else:
+                    logger.warning(f"[S3] Receipt upload failed (no OCR), continuing without S3 URL")
+            except Exception as e:
+                logger.error(f"[S3] Receipt upload error (no OCR): {e}")
+                # Continue processing even if S3 upload fails
+        
         # Try to process with caption only
         if caption_data['amount']:
             logger.info(f"[PHOTO HANDLER] OCR disabled, using caption data")
@@ -81,6 +108,7 @@ async def process_receipt_photo(message: Message, state: FSMContext):
                 ocr_confidence=1.0,
                 user_currency=user.primary_currency,
                 photo_file_id=message.photo[-1].file_id,
+                receipt_image_url=receipt_image_url,  # Save S3 URL
                 detected_category=caption_data['category'] or 'other',
                 description=caption_parser.suggest_description(caption, caption_data['category'])
             )
@@ -106,6 +134,7 @@ async def process_receipt_photo(message: Message, state: FSMContext):
             # Save photo file ID and ask for amount
             await state.update_data(
                 photo_file_id=message.photo[-1].file_id,
+                receipt_image_url=receipt_image_url,  # Save S3 URL
                 user_currency=user.primary_currency
             )
             await state.set_state(ReceiptStates.editing_amount)
@@ -142,6 +171,26 @@ async def process_receipt_photo(message: Message, state: FSMContext):
         file = await bot.get_file(photo.file_id)
         photo_bytes = io.BytesIO()
         await bot.download_file(file.file_path, photo_bytes)
+        photo_bytes.seek(0)
+        
+        # Upload photo to S3 for storage
+        receipt_image_url = None
+        if s3_service.enabled:
+            try:
+                receipt_image_url = await s3_service.upload_receipt(
+                    user_id=user.id,
+                    file_data=photo_bytes.getvalue(),
+                    content_type='image/jpeg'
+                )
+                if receipt_image_url:
+                    logger.info(f"[S3] Receipt uploaded: {receipt_image_url}")
+                else:
+                    logger.warning(f"[S3] Receipt upload failed, continuing without S3 URL")
+            except Exception as e:
+                logger.error(f"[S3] Receipt upload error: {e}")
+                # Continue processing even if S3 upload fails
+        
+        # Reset BytesIO for OCR processing
         photo_bytes.seek(0)
         
         # Parse caption first if available
@@ -190,6 +239,7 @@ async def process_receipt_photo(message: Message, state: FSMContext):
             ocr_confidence=ocr_result.get('confidence', 0),
             user_currency=user.primary_currency,
             photo_file_id=photo.file_id,
+            receipt_image_url=receipt_image_url,  # Save S3 URL
             detected_category=ocr_result.get('category', 'other'),
             description=caption_parser.suggest_description(caption, ocr_result.get('category')),
             caption_amount=str(caption_data['amount']) if caption_data.get('amount') else None,
@@ -438,6 +488,9 @@ async def process_receipt_photo(message: Message, state: FSMContext):
         amount_primary = Decimal(data.get('amount_primary', data['amount']))
         exchange_rate = Decimal(data.get('exchange_rate', '1.0000'))
         
+        # Check if user is in company mode
+        company_id = user.active_company_id if user else None
+        
         transaction = await transaction_service.create_transaction(
             session=session,
             user_id=user.id,
@@ -448,7 +501,8 @@ async def process_receipt_photo(message: Message, state: FSMContext):
             transaction_date=transaction_date,
             amount_primary=amount_primary,
             exchange_rate=exchange_rate,
-            receipt_image_url=None,  # TODO: S3 upload
+            company_id=company_id,
+            receipt_image_url=data.get('receipt_image_url'),  # Use S3 URL from state
             ocr_confidence=Decimal(str(data.get('ocr_confidence', 0)))
         )
         
@@ -584,8 +638,8 @@ async def process_receipt_category(callback: CallbackQuery, state: FSMContext):
         # Get state data
         data = await state.get_data()
         
-        # TODO: Upload photo to S3 and get URL
-        receipt_image_url = None
+        # Get receipt image URL from state (uploaded earlier in OCR processing)
+        receipt_image_url = data.get('receipt_image_url')
         
         # Create transaction
         amount_primary = Decimal(data.get('amount_primary', data['amount']))
@@ -609,6 +663,7 @@ async def process_receipt_category(callback: CallbackQuery, state: FSMContext):
             transaction_date=transaction_date,
             amount_primary=amount_primary,
             exchange_rate=exchange_rate,
+            company_id=user.active_company_id,  # Add company_id support
             receipt_image_url=receipt_image_url,
             ocr_confidence=Decimal(str(data.get('ocr_confidence', 0)))
         )
@@ -666,7 +721,8 @@ async def confirm_duplicate_photo(callback: CallbackQuery, state: FSMContext):
             transaction_date=transaction_date,
             amount_primary=amount_primary,
             exchange_rate=exchange_rate,
-            receipt_image_url=None,
+            company_id=user.active_company_id,  # Add company_id support
+            receipt_image_url=data.get('receipt_image_url'),  # Use S3 URL from state
             ocr_confidence=Decimal(str(data.get('ocr_confidence', 0)))
         )
         
@@ -832,7 +888,8 @@ async def process_manual_amount_input(message: Message, state: FSMContext):
                     transaction_date=datetime.now(),
                     amount_primary=amount,
                     exchange_rate=Decimal('1.0000'),
-                    receipt_image_url=None,  # TODO: Upload to S3
+                    company_id=user.active_company_id,  # Add company_id support
+                    receipt_image_url=data.get('receipt_image_url'),  # Use S3 URL from state
                     ocr_confidence=Decimal('1.0')
                 )
                 
@@ -983,7 +1040,8 @@ async def process_description_request(message: Message, state: FSMContext):
                     transaction_date=transaction_date,
                     amount_primary=amount_primary,
                     exchange_rate=exchange_rate,
-                    receipt_image_url=None,
+                    company_id=user.active_company_id,  # Add company_id support
+                    receipt_image_url=data.get('receipt_image_url'),  # Use S3 URL from state
                     ocr_confidence=Decimal(str(data.get('ocr_confidence', 0)))
                 )
                 

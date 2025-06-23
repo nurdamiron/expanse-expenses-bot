@@ -19,6 +19,7 @@ expense_parser = ExpenseParser()
 
 
 @router.message(F.text == "/settings")
+@router.message(F.text.startswith("⚙️"))
 async def cmd_settings(message: Message, state: FSMContext):
     """Show settings menu"""
     telegram_id = message.from_user.id
@@ -26,48 +27,76 @@ async def cmd_settings(message: Message, state: FSMContext):
     async with get_session() as session:
         user = await user_service.get_user_by_telegram_id(session, telegram_id)
         if not user:
-            await message.answer("/start")
+            # User not found - silently return (should not happen with proper bot setup)
             return
         
         locale = user.language_code
         
-        # Format current settings
-        text = f"<b>{i18n.get('settings.title', locale)}</b>\n\n"
+        # Clear any existing state
+        await state.clear()
+        
+        # Create menu text
+        text = f"<b>⚙️ {i18n.get('settings.title', locale)}</b>\n\n"
+        text += "Выберите настройку:"
+        
+        # Create inline keyboard with all settings options
+        builder = InlineKeyboardBuilder()
+        
+        # Categories management
+        builder.button(
+            text=f"📂 {i18n.get('keyboard.categories', locale)}",
+            callback_data="settings:categories"
+        )
+        
+        # Export data
+        builder.button(
+            text=f"📤 {i18n.get('keyboard.export', locale)}",
+            callback_data="settings:export"
+        )
         
         # Language
-        text += f"{i18n.get('settings.language', locale)}: "
-        text += "🇷🇺 Русский" if locale == 'ru' else "🇰🇿 Қазақша"
-        text += "\n"
+        lang_text = "🇷🇺 Русский" if locale == 'ru' else "🇰🇿 Қазақша"
+        builder.button(
+            text=f"🌐 Язык: {lang_text}",
+            callback_data="settings:language"
+        )
         
         # Currency
         currency_symbol = expense_parser.CURRENCY_SYMBOLS.get(user.primary_currency, '')
-        text += f"{i18n.get('settings.currency', locale)}: {currency_symbol} {user.primary_currency}\n"
+        builder.button(
+            text=f"💱 Валюта: {currency_symbol} {user.primary_currency}",
+            callback_data="settings:currency"
+        )
         
         # Timezone
-        text += f"{i18n.get('settings.timezone', locale)}: {user.timezone}\n"
+        builder.button(
+            text=f"🕐 Часовой пояс: {user.timezone}",
+            callback_data="settings:timezone"
+        )
         
-        # Notifications
-        notifications_enabled = user.settings.get('notifications_enabled', True) if user.settings else True
-        text += f"{i18n.get('settings.notifications', locale)}: "
-        text += "✅" if notifications_enabled else "❌"
-        text += "\n"
+        # Get notifications setting from user settings
+        user_settings = user.settings or {}
+        notifications_enabled = user_settings.get('notifications', True)
+        notif_icon = "✅" if notifications_enabled else "❌"
+        builder.button(
+            text=f"🔔 Уведомления: {notif_icon}",
+            callback_data="settings:notifications"
+        )
         
-        # Create menu keyboard
-        builder = InlineKeyboardBuilder()
+        # Limits
+        builder.button(
+            text=f"🎯 {i18n.get('settings.limits', locale)}",
+            callback_data="settings:limits"
+        )
         
-        menu_items = [
-            (f"{i18n.get('settings.language', locale)}", "settings:language"),
-            (f"{i18n.get('settings.currency', locale)}", "settings:currency"),
-            (f"{i18n.get('settings.timezone', locale)}", "settings:timezone"),
-            (f"{i18n.get('settings.notifications', locale)}", "settings:notifications"),
-            (f"{i18n.get('settings.limits', locale)}", "settings:limits"),
-            (f"🗑 {i18n.get('settings.clear_data', locale)}", "settings:clear_data"),
-        ]
+        # Clear data
+        builder.button(
+            text=f"🗑 {i18n.get('settings.clear_data', locale)}",
+            callback_data="settings:clear_data"
+        )
         
-        for text_btn, callback_data in menu_items:
-            builder.row(
-                InlineKeyboardButton(text=text_btn, callback_data=callback_data)
-            )
+        # Layout: 1 button per row (single column)
+        builder.adjust(1)
         
         await message.answer(
             text,

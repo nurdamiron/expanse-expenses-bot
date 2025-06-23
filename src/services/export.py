@@ -15,11 +15,14 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase.pdfmetrics import registerFontFamily
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.models import Transaction, User, Category
 from src.services.transaction import TransactionService
 from src.services.category import CategoryService
+from src.services.s3_storage import S3StorageService
 from src.utils.text_parser import ExpenseParser
 
 logger = logging.getLogger(__name__)
@@ -31,17 +34,89 @@ class ExportService:
     def __init__(self):
         self.transaction_service = TransactionService()
         self.category_service = CategoryService()
+        self.s3_service = S3StorageService()
         self.expense_parser = ExpenseParser()
         
-        # Try to register fonts for PDF
+        # Try to register fonts for PDF with Cyrillic support
+        self._register_fonts()
+    
+    def _register_fonts(self):
+        """Register fonts with Cyrillic support for PDF generation"""
+        import os
+        from pathlib import Path
+        
+        # First, try to use bundled font
+        project_root = Path(__file__).parent.parent.parent
+        bundled_font_path = project_root / 'assets' / 'fonts' / 'NotoSans-Regular.ttf'
+        
+        if bundled_font_path.exists():
+            try:
+                pdfmetrics.registerFont(TTFont('NotoSans', str(bundled_font_path)))
+                self.pdf_font = 'NotoSans'
+                logger.info(f"Successfully registered bundled font: {bundled_font_path}")
+                return
+            except Exception as e:
+                logger.warning(f"Failed to register bundled font: {e}")
+        
+        # If bundled font not found, try system fonts
+        import platform
+        
+        font_paths = []
+        
+        if platform.system() == 'Darwin':  # macOS
+            font_paths = [
+                '/System/Library/Fonts/Helvetica.ttc',
+                '/System/Library/Fonts/Arial Unicode.ttf',
+                '/Library/Fonts/Arial Unicode.ttf',
+                '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+                # DejaVu fonts if installed via homebrew
+                '/opt/homebrew/share/fonts/DejaVuSans.ttf',
+                '/usr/local/share/fonts/DejaVuSans.ttf',
+            ]
+        elif platform.system() == 'Linux':
+            font_paths = [
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+                '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+                '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf',
+            ]
+        
+        # Try to register a system font
+        for font_path in font_paths:
+            if os.path.exists(font_path):
+                try:
+                    pdfmetrics.registerFont(TTFont('CustomFont', font_path))
+                    self.pdf_font = 'CustomFont'
+                    logger.info(f"Successfully registered system font: {font_path}")
+                    return
+                except Exception as e:
+                    logger.debug(f"Failed to register font {font_path}: {e}")
+                    continue
+        
+        # Last resort - download font
         try:
-            # You may need to adjust font paths based on your system
-            pdfmetrics.registerFont(TTFont('DejaVu', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
-            pdfmetrics.registerFont(TTFont('DejaVu-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
-            self.pdf_font = 'DejaVu'
-        except:
-            logger.warning("Could not register custom fonts for PDF, using default")
+            import urllib.request
+            
+            font_url = "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf"
+            
+            # Ensure fonts directory exists
+            fonts_dir = project_root / 'assets' / 'fonts'
+            fonts_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Download to permanent location
+            download_path = fonts_dir / 'NotoSans-Regular.ttf'
+            
+            if not download_path.exists():
+                logger.info("Downloading Noto Sans font for Cyrillic support...")
+                urllib.request.urlretrieve(font_url, str(download_path))
+            
+            pdfmetrics.registerFont(TTFont('NotoSans', str(download_path)))
+            self.pdf_font = 'NotoSans'
+            logger.info("Successfully downloaded and registered Noto Sans font")
+        except Exception as e:
+            logger.warning(f"Failed to download font: {e}")
+            # Use Helvetica as last resort
             self.pdf_font = 'Helvetica'
+            logger.warning("Using Helvetica font - Cyrillic text may not display correctly")
     
     async def export_transactions(
         self,
@@ -51,8 +126,8 @@ class ExportService:
         start_date: date,
         end_date: date,
         category_ids: Optional[List[str]] = None
-    ) -> Optional[BinaryIO]:
-        """Export transactions in specified format"""
+    ) -> Optional[str]:
+        """Export transactions in specified format and upload to S3"""
         # Get transactions
         transactions = await self._get_transactions_for_export(
             session, user.id, start_date, end_date, category_ids
@@ -66,14 +141,45 @@ class ExportService:
         category_map = {cat.id: cat for cat in categories}
         
         # Export based on format
+        file_io = None
+        filename = None
+        content_type = None
+        
         if format == 'xlsx':
-            return await self._export_to_excel(transactions, category_map, user)
+            file_io = await self._export_to_excel(transactions, category_map, user)
+            filename = f"expenses_{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}.xlsx"
+            content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         elif format == 'csv':
-            return await self._export_to_csv(transactions, category_map, user)
+            file_io = await self._export_to_csv(transactions, category_map, user)
+            filename = f"expenses_{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}.csv"
+            content_type = 'text/csv'
         elif format == 'pdf':
-            return await self._export_to_pdf(transactions, category_map, user, start_date, end_date)
+            file_io = await self._export_to_pdf(transactions, category_map, user, start_date, end_date)
+            filename = f"expenses_{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}.pdf"
+            content_type = 'application/pdf'
         else:
             raise ValueError(f"Unsupported export format: {format}")
+        
+        if not file_io:
+            return None
+        
+        # Upload to S3 if enabled
+        if self.s3_service.enabled:
+            file_io.seek(0)
+            s3_url = await self.s3_service.upload_export_file(
+                user_id=user.id,
+                file_data=file_io.getvalue(),
+                filename=filename,
+                content_type=content_type
+            )
+            
+            if s3_url:
+                logger.info(f"[S3] Export file uploaded: {s3_url}")
+                return s3_url
+        
+        # Fallback: return file data as string (for backward compatibility)
+        file_io.seek(0)
+        return file_io.getvalue()
     
     async def _get_transactions_for_export(
         self,
@@ -235,9 +341,15 @@ class ExportService:
         
         # Styles
         styles = getSampleStyleSheet()
+        
+        # Update font for all styles to support Cyrillic
+        for style_name in styles.byName:
+            styles[style_name].fontName = self.pdf_font
+        
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
+            fontName=self.pdf_font,
             fontSize=24,
             textColor=colors.HexColor('#1a1a1a'),
             spaceAfter=30,
@@ -276,7 +388,7 @@ class ExportService:
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), self.pdf_font),
+            ('FONTNAME', (0, 0), (-1, -1), self.pdf_font),
             ('FONTSIZE', (0, 0), (-1, 0), 12),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
@@ -312,7 +424,7 @@ class ExportService:
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('ALIGN', (1, 0), (2, -1), 'RIGHT'),
-                ('FONTNAME', (0, 0), (-1, 0), self.pdf_font),
+                ('FONTNAME', (0, 0), (-1, -1), self.pdf_font),
                 ('FONTSIZE', (0, 0), (-1, 0), 12),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
                 ('BACKGROUND', (0, 1), (-1, -1), colors.beige),

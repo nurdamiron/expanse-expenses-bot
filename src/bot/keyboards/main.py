@@ -3,32 +3,29 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from src.utils.i18n import i18n
 
 
-def get_main_keyboard(locale: str = 'ru') -> ReplyKeyboardMarkup:
-    """Get main keyboard with all functions"""
+def get_main_keyboard(locale: str = 'ru', company_name: str = None) -> ReplyKeyboardMarkup:
+    """Get simplified main keyboard"""
     builder = ReplyKeyboardBuilder()
     
-    # Row 1 - Add expense
+    # Add company mode indicator at the top if active
+    if company_name:
+        builder.row(
+            KeyboardButton(text=f"🏢 {company_name}")
+        )
+    
+    # Row 1/2 - Add expense
+    expense_text = f"➕ {i18n.get('keyboard.add_expense', locale)}"
+    
+    # Row 1/2 - Main actions (2 buttons)
     builder.row(
-        KeyboardButton(text=f"➕ {i18n.get('keyboard.add_expense', locale)}")
+        KeyboardButton(text=expense_text),
+        KeyboardButton(text=f"📊 {i18n.get('keyboard.analytics', locale)}")
     )
     
-    # Row 2 - Reports
+    # Row 2/3 - Settings and Company (2 buttons)
     builder.row(
-        KeyboardButton(text=f"📊 {i18n.get('keyboard.report_day', locale)}"),
-        KeyboardButton(text=f"📈 {i18n.get('keyboard.report_week', locale)}"),
-        KeyboardButton(text=f"📉 {i18n.get('keyboard.report_month', locale)}")
-    )
-    
-    # Row 3 - Categories and stats
-    builder.row(
-        KeyboardButton(text=f"📂 {i18n.get('keyboard.categories', locale)}"),
-        KeyboardButton(text=f"💰 {i18n.get('keyboard.by_category', locale)}")
-    )
-    
-    # Row 4 - Export and settings
-    builder.row(
-        KeyboardButton(text=f"📤 {i18n.get('keyboard.export', locale)}"),
-        KeyboardButton(text=f"⚙️ {i18n.get('keyboard.settings', locale)}")
+        KeyboardButton(text=f"⚙️ {i18n.get('keyboard.settings', locale)}"),
+        KeyboardButton(text=f"💼 {i18n.get('keyboard.company', locale)}")
     )
     
     return builder.as_markup(resize_keyboard=True)

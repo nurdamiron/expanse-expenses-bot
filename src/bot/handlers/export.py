@@ -258,13 +258,13 @@ async def generate_export(callback: CallbackQuery, state: FSMContext):
         
         try:
             # Generate export
-            file_data = await export_service.export_transactions(
+            export_result = await export_service.export_transactions(
                 session, user, format_type,
                 start_date, end_date,
                 category_ids
             )
             
-            if not file_data:
+            if not export_result:
                 await callback.message.edit_text(
                     "📭 Нет данных для экспорта за выбранный период"
                 )
@@ -275,20 +275,49 @@ async def generate_export(callback: CallbackQuery, state: FSMContext):
             date_str = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"expenses_{date_str}.{format_type}"
             
-            # Send file
-            document = BufferedInputFile(
-                file_data.read(),
-                filename=filename
-            )
-            
-            caption = f"📊 Экспорт расходов\n"
-            caption += f"Период: {start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}\n"
-            caption += f"Формат: {format_type.upper()}"
-            
-            await callback.message.answer_document(
-                document,
-                caption=caption
-            )
+            # Check if result is S3 URL or file data
+            if isinstance(export_result, str) and export_result.startswith('http'):
+                # S3 URL - send as link
+                caption = f"📊 Экспорт расходов\n"
+                caption += f"Период: {start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}\n"
+                caption += f"Формат: {format_type.upper()}\n\n"
+                caption += f"📎 [Скачать файл]({export_result})"
+                
+                await callback.message.edit_text(
+                    caption,
+                    parse_mode="Markdown",
+                    disable_web_page_preview=True
+                )
+                
+                file_size = 0  # Unknown for S3 URLs
+            else:
+                # File data - send as document
+                if hasattr(export_result, 'seek'):
+                    export_result.seek(0)
+                    file_data = export_result
+                else:
+                    # Raw bytes
+                    import io
+                    file_data = io.BytesIO(export_result)
+                
+                document = BufferedInputFile(
+                    file_data.read(),
+                    filename=filename
+                )
+                
+                caption = f"📊 Экспорт расходов\n"
+                caption += f"Период: {start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}\n"
+                caption += f"Формат: {format_type.upper()}"
+                
+                await callback.message.answer_document(
+                    document,
+                    caption=caption
+                )
+                
+                file_size = len(file_data.getvalue()) if hasattr(file_data, 'getvalue') else len(export_result)
+                
+                # Delete loading message
+                await callback.message.delete()
             
             # Save export history
             export_record = ExportHistory(
@@ -296,13 +325,11 @@ async def generate_export(callback: CallbackQuery, state: FSMContext):
                 format=format_type,
                 period_start=start_date,
                 period_end=end_date,
-                file_size=len(file_data.getvalue()) if hasattr(file_data, 'getvalue') else 0
+                file_size=file_size,
+                file_url=export_result if isinstance(export_result, str) and export_result.startswith('http') else None
             )
             session.add(export_record)
             await session.commit()
-            
-            # Delete loading message
-            await callback.message.delete()
             
         except Exception as e:
             logger.error(f"Export error: {e}")

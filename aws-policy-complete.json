@@ -1,0 +1,166 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ECRAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ecr:GetAuthorizationToken",
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage",
+                "ecr:PutImage",
+                "ecr:InitiateLayerUpload",
+                "ecr:UploadLayerPart",
+                "ecr:CompleteLayerUpload",
+                "ecr:CreateRepository",
+                "ecr:DescribeRepositories"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ECSAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ecs:CreateCluster",
+                "ecs:CreateService",
+                "ecs:UpdateService",
+                "ecs:DeleteService",
+                "ecs:RegisterTaskDefinition",
+                "ecs:DeregisterTaskDefinition",
+                "ecs:DescribeClusters",
+                "ecs:DescribeServices",
+                "ecs:DescribeTaskDefinition",
+                "ecs:DescribeTasks",
+                "ecs:ListClusters",
+                "ecs:ListServices",
+                "ecs:ListTaskDefinitions",
+                "ecs:ListTasks",
+                "ecs:RunTask",
+                "ecs:StopTask"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "RDSAccess",
+            "Effect": "Allow",
+            "Action": [
+                "rds:CreateDBInstance",
+                "rds:CreateDBSubnetGroup",
+                "rds:DeleteDBInstance",
+                "rds:DescribeDBInstances",
+                "rds:DescribeDBSubnetGroups",
+                "rds:ModifyDBInstance",
+                "rds:CreateDBSnapshot",
+                "rds:DescribeDBSnapshots"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ElastiCacheAccess",
+            "Effect": "Allow",
+            "Action": [
+                "elasticache:CreateCacheCluster",
+                "elasticache:CreateCacheSubnetGroup",
+                "elasticache:DeleteCacheCluster",
+                "elasticache:DescribeCacheClusters",
+                "elasticache:DescribeCacheSubnetGroups",
+                "elasticache:ModifyCacheCluster"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VPCAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeVpcs",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeSecurityGroups",
+                "ec2:CreateSecurityGroup",
+                "ec2:AuthorizeSecurityGroupIngress",
+                "ec2:AuthorizeSecurityGroupEgress",
+                "ec2:RevokeSecurityGroupIngress",
+                "ec2:RevokeSecurityGroupEgress",
+                "ec2:DescribeInstances",
+                "ec2:DescribeNetworkInterfaces"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "IAMAccess",
+            "Effect": "Allow",
+            "Action": [
+                "iam:CreateRole",
+                "iam:AttachRolePolicy",
+                "iam:PutRolePolicy",
+                "iam:PassRole",
+                "iam:GetRole",
+                "iam:ListRoles"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SecretsManagerAccess",
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:CreateSecret",
+                "secretsmanager:UpdateSecret",
+                "secretsmanager:DeleteSecret",
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:ListSecrets"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CloudWatchAccess",
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:DescribeLogGroups",
+                "logs:DescribeLogStreams",
+                "logs:PutRetentionPolicy",
+                "cloudwatch:PutMetricAlarm",
+                "cloudwatch:DescribeAlarms"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "S3Access",
+            "Effect": "Allow",
+            "Action": [
+                "s3:CreateBucket",
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject",
+                "s3:ListBucket",
+                "s3:PutBucketPolicy",
+                "s3:GetBucketPolicy"
+            ],
+            "Resource": [
+                "arn:aws:s3:::expenses-bot-*",
+                "arn:aws:s3:::expenses-bot-*/*"
+            ]
+        },
+        {
+            "Sid": "ExpanseBotS3Access",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject",
+                "s3:ListBucket",
+                "s3:PutObjectAcl",
+                "s3:GetObjectAcl"
+            ],
+            "Resource": [
+                "arn:aws:s3:::expanse-assets-eu-north-1",
+                "arn:aws:s3:::expanse-assets-eu-north-1/*",
+                "arn:aws:s3:::expanse-bot-receipts",
+                "arn:aws:s3:::expanse-bot-receipts/*"
+            ]
+        }
+    ]
+}
