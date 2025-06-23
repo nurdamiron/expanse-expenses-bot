@@ -11,19 +11,36 @@ Base = declarative_base()
 
 # Create async engine
 if settings.is_development():
+    # SQLite configuration for better concurrency
+    connect_args = {}
+    if "sqlite" in settings.get_database_url:
+        connect_args = {
+            "timeout": 20,
+            "check_same_thread": False,
+        }
+    
     engine = create_async_engine(
         settings.get_database_url,
         echo=True,
         pool_pre_ping=True,
-        poolclass=NullPool
+        poolclass=NullPool,
+        connect_args=connect_args
     )
 else:
+    connect_args = {}
+    if "sqlite" in settings.get_database_url:
+        connect_args = {
+            "timeout": 20,
+            "check_same_thread": False,
+        }
+    
     engine = create_async_engine(
         settings.get_database_url,
         echo=False,
         pool_pre_ping=True,
         pool_size=5,
-        max_overflow=10
+        max_overflow=10,
+        connect_args=connect_args
     )
 
 # Create session factory
@@ -40,6 +57,13 @@ async def init_db():
         # Import all models to register them with Base
         from . import models
         
+        # Configure SQLite for better concurrency
+        if "sqlite" in settings.get_database_url:
+            await conn.exec_driver_sql("PRAGMA journal_mode=WAL")
+            await conn.exec_driver_sql("PRAGMA synchronous=NORMAL")
+            await conn.exec_driver_sql("PRAGMA timeout=20000")
+            await conn.exec_driver_sql("PRAGMA busy_timeout=20000")
+        
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
 
@@ -51,13 +75,33 @@ async def close_db():
 
 @asynccontextmanager
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Get database session"""
-    async with async_session_maker() as session:
+    """Get database session with retry logic for SQLite locks"""
+    import asyncio
+    from sqlalchemy.exc import OperationalError
+    
+    max_retries = 3
+    retry_delay = 0.1
+    
+    for attempt in range(max_retries + 1):
         try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
+            async with async_session_maker() as session:
+                try:
+                    yield session
+                    await session.commit()
+                    break  # Success, exit retry loop
+                except OperationalError as e:
+                    await session.rollback()
+                    if "database is locked" in str(e) and attempt < max_retries:
+                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                        continue
+                    raise
+                except Exception:
+                    await session.rollback()
+                    raise
+                finally:
+                    await session.close()
+        except OperationalError as e:
+            if "database is locked" in str(e) and attempt < max_retries:
+                await asyncio.sleep(retry_delay * (2 ** attempt))
+                continue
             raise
-        finally:
-            await session.close()
