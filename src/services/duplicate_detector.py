@@ -15,6 +15,7 @@ class DuplicateDetector:
         user_id: int,
         amount: Decimal,
         merchant: Optional[str] = None,
+        description: Optional[str] = None,
         transaction_date: Optional[datetime] = None,
         time_window_hours: int = 24
     ) -> List[Transaction]:
@@ -26,6 +27,7 @@ class DuplicateDetector:
             user_id: User ID
             amount: Transaction amount
             merchant: Merchant name
+            description: Transaction description
             transaction_date: Transaction date
             time_window_hours: Time window to check for duplicates
             
@@ -61,20 +63,32 @@ class DuplicateDetector:
                 )
             )
         
+        # Don't filter by description - it can vary for same transaction
+        
         # Execute query
         result = await session.execute(query)
         duplicates = result.scalars().all()
         
-        # Filter by exact time match if we have exact duplicates
+        # Filter by exact time match for true duplicates
         exact_duplicates = []
-        for dup in duplicates:
-            # Check if transaction is within seconds of each other
-            time_diff = abs((dup.transaction_date - transaction_date).total_seconds())
-            if time_diff <= 1:  # Within 1 second - exact duplicate
-                exact_duplicates.append(dup)
+        near_duplicates = []
         
-        # Return exact duplicates if found, otherwise all potential duplicates
-        return exact_duplicates if exact_duplicates else duplicates
+        for dup in duplicates:
+            # Check time difference
+            time_diff = abs((dup.transaction_date - transaction_date).total_seconds())
+            
+            if time_diff <= 5:  # Within 5 seconds - exact duplicate
+                exact_duplicates.append(dup)
+            elif time_diff <= 60:  # Within 1 minute - likely duplicate
+                near_duplicates.append(dup)
+        
+        # Return exact duplicates first, then near duplicates
+        if exact_duplicates:
+            return exact_duplicates
+        elif near_duplicates and not merchant:  # For receipts without merchant, be more strict
+            return near_duplicates
+        
+        return []  # Don't return far time matches as duplicates
     
     def is_likely_duplicate(
         self,

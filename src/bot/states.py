@@ -26,6 +26,10 @@ class ReceiptStates(StatesGroup):
     selecting_category = State()
     selecting_currency = State()
     confirming_duplicate = State()
+    choosing_category = State()
+    clarifying_amount = State()
+    clarifying_category = State()
+    asking_description = State()
 
 
 class CategoryStates(StatesGroup):

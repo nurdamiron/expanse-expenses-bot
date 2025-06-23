@@ -68,10 +68,13 @@ class OpenAIVisionService:
                 "amount": <total amount as number>,
                 "currency": "<KZT/RUB/USD/EUR>",
                 "date": "<YYYY-MM-DD>",
+                "time": "<HH:MM:SS>",
                 "merchant": "<store name>",
                 "items": ["<item1>", "<item2>"],
                 "category": "<category from above list>"
-            }"""
+            }
+            
+            IMPORTANT: Extract exact time from receipt if visible (usually shown as "Время: HH:MM:SS" or similar)"""
             
             # Call OpenAI Vision API
             response = await self.client.chat.completions.create(
@@ -132,25 +135,59 @@ class OpenAIVisionService:
                     if currency in settings.supported_currencies:
                         result['currency'] = currency
                 
-                # Extract date
+                # Extract date and time
                 if 'date' in data and data['date']:
                     try:
-                        # Parse date and add current time to it
+                        # Parse date
                         parsed_date = datetime.strptime(data['date'], '%Y-%m-%d')
-                        # Combine with current time to preserve seconds for duplicate detection
-                        now = datetime.now()
-                        result['date'] = parsed_date.replace(
-                            hour=now.hour,
-                            minute=now.minute,
-                            second=now.second,
-                            microsecond=now.microsecond
-                        )
+                        
+                        # Check if time is provided
+                        if 'time' in data and data['time']:
+                            try:
+                                # Parse time and combine with date
+                                time_parts = data['time'].split(':')
+                                if len(time_parts) >= 2:
+                                    hour = int(time_parts[0])
+                                    minute = int(time_parts[1])
+                                    second = int(time_parts[2]) if len(time_parts) > 2 else 0
+                                    result['date'] = parsed_date.replace(
+                                        hour=hour,
+                                        minute=minute,
+                                        second=second
+                                    )
+                                else:
+                                    # Use current time if time format is invalid
+                                    now = datetime.now()
+                                    result['date'] = parsed_date.replace(
+                                        hour=now.hour,
+                                        minute=now.minute,
+                                        second=now.second,
+                                        microsecond=now.microsecond
+                                    )
+                            except (ValueError, IndexError):
+                                # Use current time if parsing fails
+                                now = datetime.now()
+                                result['date'] = parsed_date.replace(
+                                    hour=now.hour,
+                                    minute=now.minute,
+                                    second=now.second,
+                                    microsecond=now.microsecond
+                                )
+                        else:
+                            # No time provided, use current time
+                            now = datetime.now()
+                            result['date'] = parsed_date.replace(
+                                hour=now.hour,
+                                minute=now.minute,
+                                second=now.second,
+                                microsecond=now.microsecond
+                            )
                     except ValueError:
-                        # Try other formats
+                        # Try other date formats
                         for fmt in ['%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d']:
                             try:
                                 parsed_date = datetime.strptime(data['date'], fmt)
-                                # Combine with current time
+                                # Use current time since we already tried to parse time above
                                 now = datetime.now()
                                 result['date'] = parsed_date.replace(
                                     hour=now.hour,
@@ -201,4 +238,71 @@ class OpenAIVisionService:
             
         except Exception as e:
             logger.error(f"OpenAI Vision processing error: {e}")
+            return None
+    
+    async def detect_category_from_description(self, description: str, merchant: Optional[str] = None) -> Optional[str]:
+        """Detect expense category from description using AI"""
+        try:
+            context = f"Description: {description}"
+            if merchant:
+                context += f"\nMerchant: {merchant}"
+            
+            prompt = f"""Based on this expense description, determine the most appropriate category.
+            
+            {context}
+            
+            Categories:
+            - food (restaurants, groceries, cafes)
+            - transport (taxi, gas, parking, public transport)
+            - shopping (clothes, electronics, household items)
+            - utilities (phone, internet, electricity, water)
+            - health (pharmacy, medical, wellness)
+            - entertainment (movies, games, sports, leisure)
+            - education (courses, books, training)
+            - donation (charity, religious donations)
+            - other (if doesn't fit any category)
+            
+            Reply with just the category name, nothing else."""
+            
+            response = await self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that categorizes expenses. Reply with just the category name."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=50,
+                temperature=0.3
+            )
+            
+            category = response.choices[0].message.content.strip().lower()
+            
+            # Validate category
+            valid_categories = ['food', 'transport', 'shopping', 'utilities', 'health', 
+                              'entertainment', 'education', 'donation', 'other']
+            
+            if category in valid_categories:
+                return category
+            
+            # Try to map similar responses
+            if any(word in category for word in ['food', 'restaurant', 'cafe', 'grocery']):
+                return 'food'
+            elif any(word in category for word in ['transport', 'taxi', 'gas', 'uber']):
+                return 'transport'
+            elif any(word in category for word in ['shop', 'cloth', 'electronic']):
+                return 'shopping'
+            elif any(word in category for word in ['utilit', 'phone', 'internet']):
+                return 'utilities'
+            elif any(word in category for word in ['health', 'medical', 'pharmacy']):
+                return 'health'
+            elif any(word in category for word in ['entertain', 'movie', 'game']):
+                return 'entertainment'
+            elif any(word in category for word in ['educat', 'course', 'book']):
+                return 'education'
+            elif any(word in category for word in ['donat', 'charity']):
+                return 'donation'
+            
+            return 'other'
+            
+        except Exception as e:
+            logger.error(f"Error detecting category from description: {e}")
             return None

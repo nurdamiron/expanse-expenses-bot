@@ -23,6 +23,14 @@ class CurrencyService:
         self.cache_ttl = 1800  # 30 minutes
         self.supported_currencies = settings.supported_currencies
         
+        # Fallback rates (approximate rates for emergency use)
+        self.fallback_rates = {
+            'USD': {'KZT': Decimal('450'), 'RUB': Decimal('90'), 'EUR': Decimal('0.92')},
+            'EUR': {'KZT': Decimal('490'), 'RUB': Decimal('98'), 'USD': Decimal('1.09')},
+            'RUB': {'KZT': Decimal('5'), 'USD': Decimal('0.011'), 'EUR': Decimal('0.010')},
+            'KZT': {'USD': Decimal('0.0022'), 'EUR': Decimal('0.0020'), 'RUB': Decimal('0.20')}
+        }
+        
         # API endpoints
         self.api_endpoints = {
             'fixer': {
@@ -43,8 +51,11 @@ class CurrencyService:
     
     async def init_redis(self):
         """Initialize Redis connection"""
-        if not self.redis_client:
-            self.redis_client = await redis.from_url(settings.redis_url)
+        if not self.redis_client and settings.redis_host:
+            try:
+                self.redis_client = await redis.from_url(settings.redis_url)
+            except Exception as e:
+                logger.warning(f"Could not connect to Redis: {e}. Currency caching disabled.")
     
     async def close_redis(self):
         """Close Redis connection"""
@@ -117,6 +128,12 @@ class CurrencyService:
             if last_rate:
                 logger.info(f"[EXCHANGE RATE] Found last known rate: {from_currency}/{to_currency} = {last_rate}")
                 return last_rate
+        
+        # Use fallback rates as last resort
+        if from_currency in self.fallback_rates and to_currency in self.fallback_rates[from_currency]:
+            rate = self.fallback_rates[from_currency][to_currency]
+            logger.warning(f"[EXCHANGE RATE] Using fallback rate: {from_currency}/{to_currency} = {rate}")
+            return rate
         
         logger.error(f"[EXCHANGE RATE] Could not get rate for {from_currency}/{to_currency}")
         return None

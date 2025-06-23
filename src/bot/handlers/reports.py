@@ -61,7 +61,8 @@ async def get_period_data(
 async def generate_daily_chart(
     transactions: List[Transaction],
     locale: str,
-    currency: str
+    currency: str,
+    title_key: str = 'stats.daily_expenses'
 ) -> io.BytesIO:
     """Generate daily expenses chart"""
     # Group by date
@@ -92,7 +93,7 @@ async def generate_daily_chart(
     # Format
     ax.set_xlabel(i18n.get('stats.date', locale), fontsize=12)
     ax.set_ylabel(f"{i18n.get('stats.amount', locale)} ({currency})", fontsize=12)
-    ax.set_title(i18n.get('stats.daily_expenses', locale), fontsize=14, fontweight='bold')
+    ax.set_title(i18n.get(title_key, locale), fontsize=14, fontweight='bold')
     
     # Format x-axis
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m'))
@@ -336,9 +337,9 @@ async def report_week(message: Message):
         locale = user.language_code
         currency = user.primary_currency
         
-        # Get week's data
+        # Get week's data (last 7 days)
         today = date.today()
-        week_start = today - timedelta(days=today.weekday())
+        week_start = today - timedelta(days=6)  # Last 7 days including today
         transactions = await get_period_data(session, user.id, week_start, today)
         
         if not transactions:
@@ -351,10 +352,11 @@ async def report_week(message: Message):
         # Calculate stats
         total = sum(float(t.amount_primary) for t in transactions)
         count = len(transactions)
-        avg_daily = total / 7
+        days_count = 7
+        avg_daily = total / days_count
         
         # Generate text report
-        report = f"📈 <b>{i18n.get('stats.week', locale)}</b> "
+        report = f"📈 <b>{i18n.get('stats.week', locale)} ({i18n.get('stats.last_7_days', locale)})</b>\n"
         report += f"({week_start.strftime('%d.%m')} - {today.strftime('%d.%m.%Y')})\n\n"
         report += f"💰 {i18n.get('stats.total', locale)}: {expense_parser.format_amount(total, currency)}\n"
         report += f"📊 {i18n.get('stats.average_daily', locale)}: {expense_parser.format_amount(avg_daily, currency)}\n"
@@ -363,15 +365,18 @@ async def report_week(message: Message):
         await message.answer(report, parse_mode="HTML")
         
         # Generate and send charts
-        # Daily chart
-        daily_chart = await generate_daily_chart(transactions, locale, currency)
+        # Daily chart for week
+        daily_chart = await generate_daily_chart(
+            transactions, locale, currency, 
+            title_key='stats.weekly_expenses'
+        )
         await message.answer_photo(
             BufferedInputFile(daily_chart.getvalue(), filename="weekly_daily.png"),
             caption=i18n.get("stats.daily_breakdown", locale)
         )
         
-        # Category pie chart
-        if count > 1:
+        # Category pie chart - show even for 1 transaction
+        if count >= 1:
             pie_chart = await generate_category_pie_chart(transactions, locale, currency)
             await message.answer_photo(
                 BufferedInputFile(pie_chart.getvalue(), filename="weekly_categories.png"),
@@ -393,9 +398,9 @@ async def report_month(message: Message):
         locale = user.language_code
         currency = user.primary_currency
         
-        # Get month's data
+        # Get month's data (last 30 days)
         today = date.today()
-        month_start = date(today.year, today.month, 1)
+        month_start = today - timedelta(days=29)  # Last 30 days including today
         transactions = await get_period_data(session, user.id, month_start, today)
         
         if not transactions:
@@ -408,12 +413,12 @@ async def report_month(message: Message):
         # Calculate stats
         total = sum(float(t.amount_primary) for t in transactions)
         count = len(transactions)
-        days_in_month = (today - month_start).days + 1
-        avg_daily = total / days_in_month
+        days_count = 30
+        avg_daily = total / days_count
         
         # Generate text report
-        report = f"📉 <b>{i18n.get('stats.month', locale)}</b> "
-        report += f"({month_start.strftime('%B %Y')})\n\n"
+        report = f"📉 <b>{i18n.get('stats.month', locale)} ({i18n.get('stats.last_30_days_period', locale)})</b>\n"
+        report += f"({month_start.strftime('%d.%m')} - {today.strftime('%d.%m.%Y')})\n\n"
         report += f"💰 {i18n.get('stats.total', locale)}: {expense_parser.format_amount(total, currency)}\n"
         report += f"📊 {i18n.get('stats.average_daily', locale)}: {expense_parser.format_amount(avg_daily, currency)}\n"
         report += f"📝 {i18n.get('stats.transactions', locale)}: {count}\n"
@@ -422,14 +427,14 @@ async def report_month(message: Message):
         
         # Generate and send charts
         # Trend chart
-        trend_chart = await generate_trend_chart(transactions, locale, currency, days_in_month)
+        trend_chart = await generate_trend_chart(transactions, locale, currency, days_count)
         await message.answer_photo(
             BufferedInputFile(trend_chart.getvalue(), filename="monthly_trend.png"),
             caption=i18n.get("stats.expense_trend", locale)
         )
         
-        # Category pie chart
-        if count > 1:
+        # Category pie chart - show even for 1 transaction
+        if count >= 1:
             pie_chart = await generate_category_pie_chart(transactions, locale, currency)
             await message.answer_photo(
                 BufferedInputFile(pie_chart.getvalue(), filename="monthly_categories.png"),

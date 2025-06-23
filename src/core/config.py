@@ -17,10 +17,11 @@ class Settings(BaseSettings):
     bot_username: str = Field(..., env="BOT_USERNAME")
     
     # Database Configuration
-    db_host: str = Field(..., env="DB_HOST")
+    database_url: Optional[str] = Field(None, env="DATABASE_URL")
+    db_host: Optional[str] = Field(None, env="DB_HOST")
     db_port: int = Field(3306, env="DB_PORT")
-    db_username: str = Field(..., env="DB_USERNAME")
-    db_password: str = Field(..., env="DB_PASSWORD")
+    db_username: Optional[str] = Field(None, env="DB_USERNAME")
+    db_password: Optional[str] = Field(None, env="DB_PASSWORD")
     db_name: str = Field("expanse_bot", env="DB_NAME")
     
     # Redis Configuration
@@ -92,8 +93,10 @@ class Settings(BaseSettings):
     supported_languages: List[str] = ["ru", "kz"]
     
     @property
-    def database_url(self) -> str:
-        """Get MySQL database URL"""
+    def get_database_url(self) -> str:
+        """Get database URL"""
+        if self.database_url:
+            return self.database_url
         return f"mysql+aiomysql://{self.db_username}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}?charset=utf8mb4"
     
     @property

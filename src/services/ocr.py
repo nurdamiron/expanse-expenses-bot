@@ -3,12 +3,22 @@ import logging
 from typing import Dict, Optional, Any
 from datetime import datetime, date
 from decimal import Decimal, InvalidOperation
-import cv2
-import numpy as np
-import pytesseract
-from PIL import Image
 import io
 import os
+
+# Try to import OCR dependencies
+try:
+    import cv2
+    import numpy as np
+    import pytesseract
+    from PIL import Image
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+    cv2 = None
+    np = None
+    pytesseract = None
+    Image = None
 
 from src.core.config import settings
 from .ocr_openai import OpenAIVisionService
@@ -20,13 +30,14 @@ class OCRService:
     """Service for OCR processing of receipts"""
     
     def __init__(self):
-        # Configure pytesseract
-        pytesseract.pytesseract.tesseract_cmd = settings.tesseract_path
-        
-        # Set tessdata path if provided
-        if settings.tessdata_prefix:
-            os.environ['TESSDATA_PREFIX'] = settings.tessdata_prefix
+        # Configure pytesseract if available
+        if OCR_AVAILABLE and pytesseract:
+            pytesseract.pytesseract.tesseract_cmd = settings.tesseract_path
             
+            # Set tessdata path if provided
+            if settings.tessdata_prefix:
+                os.environ['TESSDATA_PREFIX'] = settings.tessdata_prefix
+        
         # Initialize OpenAI Vision service if configured
         self.openai_service = OpenAIVisionService() if settings.use_openai_vision else None
         # Currency patterns
@@ -68,6 +79,11 @@ class OCRService:
             if result and result.get('amount'):
                 return result
             logger.warning("OpenAI Vision failed, falling back to Tesseract")
+        
+        # Check if OCR is available
+        if not OCR_AVAILABLE:
+            logger.error("OCR dependencies (cv2, pytesseract) are not installed. Please install them to use OCR features.")
+            return None
         
         # Fallback to Tesseract
         logger.info("[OCR SERVICE] Using Tesseract for OCR")
@@ -112,8 +128,11 @@ class OCRService:
             logger.error(f"[OCR SERVICE] OCR processing error: {e}", exc_info=True)
             return None
     
-    def _preprocess_image(self, image: np.ndarray) -> np.ndarray:
+    def _preprocess_image(self, image: 'np.ndarray') -> 'np.ndarray':
         """Preprocess image for better OCR results"""
+        if not OCR_AVAILABLE:
+            raise RuntimeError("OCR dependencies are not available")
+        
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         

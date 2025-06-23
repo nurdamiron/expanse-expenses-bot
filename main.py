@@ -7,6 +7,7 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
+from aiogram.fsm.storage.memory import MemoryStorage
 from redis.asyncio import Redis
 
 # Add src to Python path
@@ -32,9 +33,10 @@ async def main():
     logger.info("Initializing database...")
     await init_db()
     
-    # Initialize Redis for FSM storage
-    redis = Redis.from_url(settings.redis_url, decode_responses=True)
-    storage = RedisStorage(redis=redis)
+    # Initialize storage for FSM
+    # Use MemoryStorage for local development (Redis not available)
+    storage = MemoryStorage()
+    redis = None  # Will be None when using MemoryStorage
     
     # Initialize bot
     bot = Bot(
@@ -65,8 +67,9 @@ async def main():
         # Close bot session
         await bot.session.close()
         
-        # Close Redis connection
-        await redis.aclose()
+        # Close Redis connection if available
+        if redis:
+            await redis.aclose()
         
         # Wait a bit for any pending operations
         await asyncio.sleep(0.1)

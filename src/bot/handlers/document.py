@@ -14,9 +14,16 @@ from src.bot.keyboards import get_cancel_keyboard
 from src.services.user import UserService
 from src.services.category import CategoryService
 from src.services.transaction import TransactionService
-from src.services.ocr import OCRService
+# Try to import OCRService
+try:
+    from src.services.ocr import OCRService
+    OCR_AVAILABLE = True
+except ImportError:
+    OCRService = None
+    OCR_AVAILABLE = False
 from src.services.duplicate_detector import duplicate_detector
 from src.utils.text_parser import ExpenseParser
+from src.utils.caption_parser import CaptionParser
 from src.utils.i18n import i18n
 from src.core.config import settings
 from src.services.currency import currency_service
@@ -27,8 +34,9 @@ logger = logging.getLogger(__name__)
 user_service = UserService()
 category_service = CategoryService()
 transaction_service = TransactionService()
-ocr_service = OCRService()
+ocr_service = OCRService() if OCR_AVAILABLE else None
 expense_parser = ExpenseParser()
+caption_parser = CaptionParser()
 
 # Supported document types
 SUPPORTED_DOCUMENT_TYPES = {
@@ -52,6 +60,7 @@ async def process_receipt_document(message: Message, state: FSMContext):
     """Process document containing receipt"""
     telegram_id = message.from_user.id
     document: Document = message.document
+    caption = message.caption or ""
     
     logger.info(f"[DOCUMENT HANDLER] Received document from user {telegram_id}")
     logger.info(f"[DOCUMENT HANDLER] Document: {document.file_name}, MIME: {document.mime_type}, Size: {document.file_size}")
@@ -67,11 +76,19 @@ async def process_receipt_document(message: Message, state: FSMContext):
         
         locale = user.language_code
     
-    # Check if OCR is enabled
+    # Check if OCR is enabled and available
     if not settings.enable_ocr:
         logger.warning(f"[DOCUMENT HANDLER] OCR is disabled in settings")
         await message.answer(
             i18n.get("errors.unknown", locale),
+            reply_markup=get_cancel_keyboard(locale)
+        )
+        return
+    
+    if not OCR_AVAILABLE or not ocr_service:
+        logger.error(f"[DOCUMENT HANDLER] OCR dependencies are not installed")
+        await message.answer(
+            "OCR functionality is not available. Please install cv2 and pytesseract dependencies.",
             reply_markup=get_cancel_keyboard(locale)
         )
         return
@@ -111,9 +128,18 @@ async def process_receipt_document(message: Message, state: FSMContext):
         if document.mime_type == 'application/pdf':
             # Process PDF
             logger.info(f"[DOCUMENT HANDLER] Processing PDF document")
-            from src.services.document_processor import DocumentProcessor
-            doc_processor = DocumentProcessor()
-            image_bytes = await doc_processor.pdf_to_image(file_bytes.getvalue())
+            try:
+                from src.services.document_processor import DocumentProcessor
+                doc_processor = DocumentProcessor()
+                image_bytes = await doc_processor.pdf_to_image(file_bytes.getvalue())
+            except ImportError:
+                logger.error("DocumentProcessor dependencies not installed (pypdf, pdf2image)")
+                await processing_msg.edit_text(
+                    "PDF processing is not available. Please install pypdf and pdf2image dependencies.",
+                    reply_markup=get_cancel_keyboard(locale)
+                )
+                await state.clear()
+                return
             
             if not image_bytes:
                 await processing_msg.edit_text(
@@ -130,9 +156,18 @@ async def process_receipt_document(message: Message, state: FSMContext):
         elif document.mime_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword']:
             # Process Word document
             logger.info(f"[DOCUMENT HANDLER] Processing Word document")
-            from src.services.document_processor import DocumentProcessor
-            doc_processor = DocumentProcessor()
-            image_bytes = await doc_processor.extract_images_from_docx(file_bytes.getvalue())
+            try:
+                from src.services.document_processor import DocumentProcessor
+                doc_processor = DocumentProcessor()
+                image_bytes = await doc_processor.extract_images_from_docx(file_bytes.getvalue())
+            except ImportError:
+                logger.error("DocumentProcessor dependencies not installed (python-docx)")
+                await processing_msg.edit_text(
+                    "Word document processing is not available. Please install python-docx dependency.",
+                    reply_markup=get_cancel_keyboard(locale)
+                )
+                await state.clear()
+                return
             
             if not image_bytes:
                 await processing_msg.edit_text(

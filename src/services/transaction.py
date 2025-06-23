@@ -96,10 +96,14 @@ class TransactionService:
         )
         
         if start_date:
-            query = query.where(Transaction.transaction_date >= start_date)
+            from datetime import datetime, time
+            start_datetime = datetime.combine(start_date, time.min) if isinstance(start_date, date) and not isinstance(start_date, datetime) else start_date
+            query = query.where(Transaction.transaction_date >= start_datetime)
         
         if end_date:
-            query = query.where(Transaction.transaction_date <= end_date)
+            from datetime import datetime, time
+            end_datetime = datetime.combine(end_date, time.max) if isinstance(end_date, date) and not isinstance(end_date, datetime) else end_date
+            query = query.where(Transaction.transaction_date <= end_datetime)
         
         if category_id:
             query = query.where(Transaction.category_id == category_id)
@@ -122,7 +126,12 @@ class TransactionService:
         user_id: int
     ) -> Tuple[Decimal, int]:
         """Get today's total spending and transaction count"""
+        from datetime import datetime, time
         today = date.today()
+        
+        # Use datetime boundaries for proper comparison
+        start_of_day = datetime.combine(today, time.min)
+        end_of_day = datetime.combine(today, time.max)
         
         result = await session.execute(
             select(
@@ -131,7 +140,8 @@ class TransactionService:
             ).where(
                 and_(
                     Transaction.user_id == user_id,
-                    func.date(Transaction.transaction_date) == today,
+                    Transaction.transaction_date >= start_of_day,
+                    Transaction.transaction_date <= end_of_day,
                     Transaction.is_deleted == False
                 )
             )
@@ -148,6 +158,12 @@ class TransactionService:
         end_date: date
     ) -> Tuple[Decimal, int]:
         """Get spending for a specific period"""
+        from datetime import datetime, time
+        
+        # Convert dates to datetime with proper time boundaries
+        start_datetime = datetime.combine(start_date, time.min)
+        end_datetime = datetime.combine(end_date, time.max)
+        
         result = await session.execute(
             select(
                 func.sum(Transaction.amount_primary),
@@ -155,8 +171,8 @@ class TransactionService:
             ).where(
                 and_(
                     Transaction.user_id == user_id,
-                    Transaction.transaction_date >= start_date,
-                    Transaction.transaction_date <= end_date,
+                    Transaction.transaction_date >= start_datetime,
+                    Transaction.transaction_date <= end_datetime,
                     Transaction.is_deleted == False
                 )
             )
@@ -186,10 +202,14 @@ class TransactionService:
         )
         
         if start_date:
-            query = query.where(Transaction.transaction_date >= start_date)
+            from datetime import datetime, time
+            start_datetime = datetime.combine(start_date, time.min)
+            query = query.where(Transaction.transaction_date >= start_datetime)
         
         if end_date:
-            query = query.where(Transaction.transaction_date <= end_date)
+            from datetime import datetime, time
+            end_datetime = datetime.combine(end_date, time.max)
+            query = query.where(Transaction.transaction_date <= end_datetime)
         
         query = query.group_by(Transaction.category_id)
         query = query.order_by(desc('total'))

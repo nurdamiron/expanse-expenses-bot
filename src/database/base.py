@@ -12,14 +12,14 @@ Base = declarative_base()
 # Create async engine
 if settings.is_development():
     engine = create_async_engine(
-        settings.database_url,
+        settings.get_database_url,
         echo=True,
         pool_pre_ping=True,
         poolclass=NullPool
     )
 else:
     engine = create_async_engine(
-        settings.database_url,
+        settings.get_database_url,
         echo=False,
         pool_pre_ping=True,
         pool_size=5,

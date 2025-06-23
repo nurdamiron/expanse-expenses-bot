@@ -17,7 +17,7 @@ from .base import Base
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     telegram_id = Column(BigInteger, unique=True, nullable=False, index=True)
     username = Column(String(255))
     first_name = Column(String(255))
@@ -48,7 +48,7 @@ class Category(Base):
     __tablename__ = "categories"
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     name_ru = Column(String(100), nullable=False)
     name_kz = Column(String(100), nullable=False)
     icon = Column(String(10), nullable=False)
@@ -81,7 +81,7 @@ class Transaction(Base):
     )
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     category_id = Column(String(36), ForeignKey('categories.id', ondelete='SET NULL'))
     amount = Column(DECIMAL(12, 2), nullable=False)
     currency = Column(
@@ -141,7 +141,7 @@ class UserLimit(Base):
     )
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     limit_type = Column(Enum('daily', 'weekly', 'monthly', name='limit_type_enum'), nullable=False)
     category_id = Column(String(36), ForeignKey('categories.id', ondelete='CASCADE'))
     amount = Column(DECIMAL(12, 2), nullable=False)
@@ -171,7 +171,7 @@ class Notification(Base):
     )
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     type = Column(
         Enum('limit_exceeded', 'weekly_report', 'monthly_report', 'reminder', name='notification_type_enum'), 
         nullable=False
@@ -195,8 +195,8 @@ class BotState(Base):
         UniqueConstraint('user_id', name='unique_user_state'),
     )
     
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     state = Column(String(100), index=True)
     state_data = Column(JSON)
     created_at = Column(DateTime, server_default=func.now())
@@ -212,11 +212,11 @@ class BotState(Base):
 class SearchHistory(Base):
     __tablename__ = "search_history"
     __table_args__ = (
-        Index('idx_user_created', 'user_id', 'created_at'),
+        Index('idx_search_user_created', 'user_id', 'created_at'),
     )
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     search_type = Column(Enum('text', 'amount', 'category', 'date_range', name='search_type_enum'), nullable=False)
     search_query = Column(Text)
     results_count = Column(Integer, default=0)
@@ -229,11 +229,11 @@ class SearchHistory(Base):
 class ExportHistory(Base):
     __tablename__ = "export_history"
     __table_args__ = (
-        Index('idx_user_created', 'user_id', 'created_at'),
+        Index('idx_export_user_created', 'user_id', 'created_at'),
     )
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     format = Column(Enum('xlsx', 'csv', 'pdf', name='export_format_enum'), nullable=False)
     period_start = Column(Date, nullable=False)
     period_end = Column(Date, nullable=False)
