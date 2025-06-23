@@ -170,3 +170,4 @@ docker-compose.override.yml
 # Test files
 test_*.py
 !tests/test_*.py
+FETCH_HEAD
