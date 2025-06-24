@@ -147,6 +147,12 @@ async def process_text_expense(message: Message, state: FSMContext):
     if any(text.startswith(btn) for btn in keyboard_buttons):
         return
     
+    # Check if already processing another expense
+    current_state = await state.get_state()
+    if current_state:
+        # User is in the middle of another operation
+        return
+    
     async with get_session() as session:
         user = await user_service.get_user_by_telegram_id(session, telegram_id)
         if not user:
@@ -250,28 +256,22 @@ async def process_text_expense(message: Message, state: FSMContext):
         
         await session.commit()
         
+        # Get today's spending for summary
+        today_total, _ = await transaction_service.get_today_spending(session, user.id)
+        from src.utils.text_parser import ExpenseParser
+        expense_parser = ExpenseParser()
+        today_formatted = expense_parser.format_amount(today_total, user_currency)
+        
         # Send confirmation
         if detected_currency != user_currency:
-            confirmation_text = i18n.get(
-                "expense.added_with_conversion",
-                locale,
-                amount=amount,
-                currency=detected_currency,
-                converted_amount=amount_primary,
-                user_currency=user_currency,
-                rate=exchange_rate,
-                category=category_obj.name_ru if locale == 'ru' else category_obj.name_kz,
-                description=description
-            )
+            confirmation_text = f"✅ {category_obj.icon} {description}\n"
+            confirmation_text += f"💰 {amount} {detected_currency} = {amount_primary:.2f} {user_currency}\n"
+            confirmation_text += f"💱 {i18n.get('currency.rate', locale)}: {exchange_rate}\n\n"
+            confirmation_text += f"📊 {i18n.get('manual_input.today_spent', locale)}: {today_formatted}"
         else:
-            confirmation_text = i18n.get(
-                "expense.added_quick",
-                locale,
-                amount=amount,
-                currency=detected_currency,
-                category=category_obj.name_ru if locale == 'ru' else category_obj.name_kz,
-                description=description
-            )
+            confirmation_text = f"✅ {category_obj.icon} {description}\n"
+            confirmation_text += f"💰 {amount} {detected_currency}\n\n"
+            confirmation_text += f"📊 {i18n.get('manual_input.today_spent', locale)}: {today_formatted}"
         
         await message.answer(
             confirmation_text,

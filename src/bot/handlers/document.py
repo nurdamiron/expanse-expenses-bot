@@ -65,8 +65,15 @@ async def process_receipt_document(message: Message, state: FSMContext):
     logger.info(f"[DOCUMENT HANDLER] Received document from user {telegram_id}")
     logger.info(f"[DOCUMENT HANDLER] Document: {document.file_name}, MIME: {document.mime_type}, Size: {document.file_size}")
     
-    # Clear any existing state
-    await state.clear()
+    # Check if already processing
+    current_state = await state.get_state()
+    if current_state:
+        logger.info(f"[DOCUMENT HANDLER] User {telegram_id} is already in state: {current_state}")
+        await message.answer("⏳ Пожалуйста, дождитесь завершения обработки предыдущего действия.")
+        return
+    
+    # Set state immediately to prevent concurrent processing
+    await state.set_state(ReceiptStates.processing)
     
     async with get_session() as session:
         user = await user_service.get_user_by_telegram_id(session, telegram_id)

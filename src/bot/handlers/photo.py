@@ -58,12 +58,13 @@ async def process_receipt_photo(message: Message, state: FSMContext):
     
     # Check if already processing
     current_state = await state.get_state()
-    if current_state and "receipt" in str(current_state):
-        await message.answer("⏳ Пожалуйста, дождитесь завершения обработки предыдущего чека.")
+    if current_state:
+        logger.info(f"[PHOTO HANDLER] User {telegram_id} is already in state: {current_state}")
+        await message.answer("⏳ Пожалуйста, дождитесь завершения обработки предыдущего действия.")
         return
     
-    # Clear any existing state to ensure fresh processing
-    await state.clear()
+    # Set state immediately to prevent concurrent processing
+    await state.set_state(ReceiptStates.processing)
     
     async with get_session() as session:
         user = await user_service.get_user_by_telegram_id(session, telegram_id)
@@ -961,6 +962,16 @@ async def process_description_request(message: Message, state: FSMContext):
         
         # Get state data
         data = await state.get_data()
+        
+        # Validate required data exists
+        if not data or 'amount' not in data:
+            logger.error(f"[DESCRIPTION HANDLER] Missing required data for user {telegram_id}")
+            await message.answer(
+                i18n.get("errors.invalid_state", locale, 
+                         default="❌ Произошла ошибка. Пожалуйста, попробуйте снова.")
+            )
+            await state.clear()
+            return
         
         # Try to detect category from description using AI if available
         category_key = None

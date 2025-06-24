@@ -104,13 +104,20 @@ class OCRService:
                     lang='rus+eng',  # Russian and English
                     config='--psm 6'  # Assume uniform block of text
                 )
+            except pytesseract.TesseractNotFoundError:
+                logger.warning("Tesseract not found, skipping local OCR")
+                return None
             except Exception as e:
                 logger.warning(f"Failed with rus+eng, trying eng only: {e}")
-                text = pytesseract.image_to_string(
-                    processed_image,
-                    lang='eng',  # English only fallback
-                    config='--psm 6'  # Assume uniform block of text
-                )
+                try:
+                    text = pytesseract.image_to_string(
+                        processed_image,
+                        lang='eng',  # English only fallback
+                        config='--psm 6'  # Assume uniform block of text
+                    )
+                except Exception:
+                    logger.warning("Failed with eng, skipping local OCR")
+                    return None
             
             logger.info(f"[OCR SERVICE] Extracted text: {text[:200]}...")
             
