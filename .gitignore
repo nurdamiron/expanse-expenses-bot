@@ -172,3 +172,9 @@ test_*.py
 !tests/test_*.py
 FETCH_HEAD
 # Keep fonts directory
+
+# Hot reload
+.last_reload
+
+# EC2 deployment config
+.ec2_config

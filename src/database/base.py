@@ -57,8 +57,10 @@ async def init_db():
         # Import all models to register them with Base
         from . import models
         
-        # Configure SQLite for better concurrency
-        if "sqlite" in settings.get_database_url:
+        # Configure database-specific optimizations
+        database_url = settings.get_database_url
+        if "sqlite" in database_url:
+            # SQLite optimizations
             await conn.exec_driver_sql("PRAGMA journal_mode=WAL")
             await conn.exec_driver_sql("PRAGMA synchronous=NORMAL")
             await conn.exec_driver_sql("PRAGMA timeout=20000")
@@ -66,6 +68,10 @@ async def init_db():
             await conn.exec_driver_sql("PRAGMA cache_size=10000")
             await conn.exec_driver_sql("PRAGMA temp_store=memory")
             await conn.exec_driver_sql("PRAGMA mmap_size=268435456")  # 256MB
+        elif "mysql" in database_url:
+            # MySQL optimizations
+            await conn.exec_driver_sql("SET SESSION innodb_lock_wait_timeout = 20")
+            await conn.exec_driver_sql("SET SESSION lock_wait_timeout = 20")
         
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
@@ -95,7 +101,17 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
         except OperationalError as e:
             if session:
                 await session.rollback()
-            if "database is locked" in str(e) and attempt < max_retries:
+            # Check for retryable database errors
+            error_str = str(e).lower()
+            is_retryable = any(err in error_str for err in [
+                "database is locked",  # SQLite
+                "lock wait timeout",   # MySQL
+                "deadlock found",      # MySQL
+                "connection reset",    # Network issues
+                "connection lost"      # Network issues
+            ])
+            
+            if is_retryable and attempt < max_retries:
                 if session:
                     await session.close()
                 await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff

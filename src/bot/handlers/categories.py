@@ -291,7 +291,7 @@ async def go_back(callback: CallbackQuery, state: FSMContext):
     await cmd_categories(callback.message, state)
 
 
-@router.callback_query(F.data == "cancel", CategoryStates)
+@router.callback_query(F.data == "cancel", StateFilter(CategoryStates))
 async def cancel_category_action(callback: CallbackQuery, state: FSMContext):
     """Cancel current category action"""
     telegram_id = callback.from_user.id

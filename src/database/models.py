@@ -17,7 +17,7 @@ from .base import Base
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     telegram_id = Column(BigInteger, unique=True, nullable=False, index=True)
     username = Column(String(255))
     first_name = Column(String(255))
@@ -52,7 +52,7 @@ class Category(Base):
     __tablename__ = "categories"
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     name_ru = Column(String(100), nullable=False)
     name_kz = Column(String(100), nullable=False)
     icon = Column(String(10), nullable=False)
@@ -85,7 +85,7 @@ class Transaction(Base):
     )
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     category_id = Column(String(36), ForeignKey('categories.id', ondelete='SET NULL'))
     amount = Column(DECIMAL(12, 2), nullable=False)
     currency = Column(
@@ -148,7 +148,7 @@ class UserLimit(Base):
     )
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     limit_type = Column(Enum('daily', 'weekly', 'monthly', name='limit_type_enum'), nullable=False)
     category_id = Column(String(36), ForeignKey('categories.id', ondelete='CASCADE'))
     amount = Column(DECIMAL(12, 2), nullable=False)
@@ -178,7 +178,7 @@ class Notification(Base):
     )
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     type = Column(
         Enum('limit_exceeded', 'weekly_report', 'monthly_report', 'reminder', name='notification_type_enum'), 
         nullable=False
@@ -203,7 +203,7 @@ class BotState(Base):
     )
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     state = Column(String(100), index=True)
     state_data = Column(JSON)
     created_at = Column(DateTime, server_default=func.now())
@@ -223,7 +223,7 @@ class SearchHistory(Base):
     )
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     search_type = Column(Enum('text', 'amount', 'category', 'date_range', name='search_type_enum'), nullable=False)
     search_query = Column(Text)
     results_count = Column(Integer, default=0)
@@ -240,7 +240,7 @@ class ExportHistory(Base):
     )
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     format = Column(Enum('xlsx', 'csv', 'pdf', name='export_format_enum'), nullable=False)
     period_start = Column(Date, nullable=False)
     period_end = Column(Date, nullable=False)
@@ -258,7 +258,7 @@ class Company(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    owner_id = Column(Integer, ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
+    owner_id = Column(BigInteger, ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
     logo_url = Column(Text)
     primary_currency = Column(
         Enum('KZT', 'RUB', 'USD', 'EUR', 'CNY', 'KRW', 'TRY', 'MYR', name='currency_enum'), 
@@ -291,14 +291,14 @@ class CompanyMember(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     company_id = Column(String(36), ForeignKey('companies.id', ondelete='CASCADE'), nullable=False)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     role = Column(Enum('owner', 'admin', 'manager', 'employee', name='company_role_enum'), nullable=False)
     department = Column(String(100))
     position = Column(String(100))
     can_approve = Column(Boolean, default=False)
     spending_limit = Column(DECIMAL(12, 2))
     is_active = Column(Boolean, default=True, index=True)
-    invited_by = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'))
+    invited_by = Column(BigInteger, ForeignKey('users.id', ondelete='SET NULL'))
     joined_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
@@ -346,7 +346,7 @@ class CompanyTransaction(Base):
     transaction_id = Column(String(36), ForeignKey('transactions.id', ondelete='CASCADE'), nullable=False)
     company_id = Column(String(36), ForeignKey('companies.id', ondelete='CASCADE'), nullable=False)
     status = Column(Enum('pending', 'approved', 'rejected', name='approval_status_enum'), default='approved')
-    approved_by = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'))
+    approved_by = Column(BigInteger, ForeignKey('users.id', ondelete='SET NULL'))
     approved_at = Column(DateTime)
     rejection_reason = Column(Text)
     created_at = Column(DateTime, server_default=func.now())

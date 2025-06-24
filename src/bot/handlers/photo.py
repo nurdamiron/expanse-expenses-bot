@@ -231,6 +231,12 @@ async def process_receipt_photo(message: Message, state: FSMContext):
         if not isinstance(transaction_date, datetime):
             transaction_date = datetime.now()
         
+        # Check if the date is too old (more than 30 days)
+        days_difference = (datetime.now() - transaction_date).days
+        if days_difference > 30:
+            logger.info(f"Receipt date {transaction_date} is {days_difference} days old, using current date instead")
+            transaction_date = datetime.now()
+        
         await state.update_data(
             amount=str(ocr_result['amount']) if ocr_result.get('amount') else None,
             currency=ocr_result.get('currency', user.primary_currency),
@@ -431,6 +437,12 @@ async def process_receipt_photo(message: Message, state: FSMContext):
             except:
                 transaction_date = datetime.now()
         else:
+            transaction_date = datetime.now()
+        
+        # Check if the date is too old (more than 30 days)
+        days_difference = (datetime.now() - transaction_date).days
+        if days_difference > 30:
+            logger.info(f"Receipt date {transaction_date} is {days_difference} days old, using current date instead")
             transaction_date = datetime.now()
         
         # Check for duplicates using exact transaction date/time

@@ -13,16 +13,13 @@ def get_main_keyboard(locale: str = 'ru', company_name: str = None) -> ReplyKeyb
             KeyboardButton(text=f"🏢 {company_name}")
         )
     
-    # Row 1/2 - Add expense
-    expense_text = f"➕ {i18n.get('keyboard.add_expense', locale)}"
-    
-    # Row 1/2 - Main actions (2 buttons)
+    # Row 1 - Analytics and History (2 buttons)
     builder.row(
-        KeyboardButton(text=expense_text),
-        KeyboardButton(text=f"📊 {i18n.get('keyboard.analytics', locale)}")
+        KeyboardButton(text=f"📊 {i18n.get('keyboard.analytics', locale)}"),
+        # KeyboardButton(text=f"📝 {i18n.get('main.last_transactions', locale)}")
     )
     
-    # Row 2/3 - Settings and Company (2 buttons)
+    # Row 2 - Settings and Company (2 buttons)
     builder.row(
         KeyboardButton(text=f"⚙️ {i18n.get('keyboard.settings', locale)}"),
         KeyboardButton(text=f"💼 {i18n.get('keyboard.company', locale)}")

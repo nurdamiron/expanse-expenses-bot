@@ -93,3 +93,11 @@ async def handle_company(message: Message, state: FSMContext):
     # Redirect to company command
     from . import company
     await company.cmd_company(message)
+
+
+@router.message(F.text.startswith("📝"))
+async def handle_history(message: Message, state: FSMContext):
+    """Handle history button"""
+    # Redirect to last transactions command
+    from . import stats
+    await stats.cmd_last(message)

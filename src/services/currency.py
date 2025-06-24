@@ -51,7 +51,7 @@ class CurrencyService:
     
     async def init_redis(self):
         """Initialize Redis connection"""
-        if not self.redis_client and settings.redis_host:
+        if not self.redis_client and settings.redis_host and settings.redis_host.strip():
             try:
                 self.redis_client = await redis.from_url(settings.redis_url)
             except Exception as e:

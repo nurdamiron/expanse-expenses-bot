@@ -68,6 +68,7 @@ class S3StorageService:
             )
             
             # Return S3 URL
+            from src.core.config import settings
             url = f"https://{self.bucket_name}.s3.{settings.aws_region}.amazonaws.com/{filename}"
             logger.info(f"Receipt uploaded to S3: {url}")
             return url
@@ -115,6 +116,7 @@ class S3StorageService:
             )
             
             # Return S3 URL
+            from src.core.config import settings
             url = f"https://{self.bucket_name}.s3.{settings.aws_region}.amazonaws.com/{s3_filename}"
             logger.info(f"Export file uploaded to S3: {url}")
             return url

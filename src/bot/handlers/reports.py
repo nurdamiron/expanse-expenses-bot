@@ -39,6 +39,11 @@ async def get_period_data(
 ) -> List[Transaction]:
     """Get transactions for period"""
     try:
+        # Convert dates to datetime to include full day range
+        from datetime import datetime, time
+        start_datetime = datetime.combine(start_date, time.min)  # 00:00:00
+        end_datetime = datetime.combine(end_date, time.max)      # 23:59:59.999999
+        
         query = select(Transaction).options(joinedload(Transaction.category))
         
         if company_id:
@@ -51,8 +56,8 @@ async def get_period_data(
                 and_(
                     CompanyTransaction.company_id == company_id,
                     CompanyTransaction.status == 'approved',
-                    Transaction.transaction_date >= start_date,
-                    Transaction.transaction_date <= end_date,
+                    Transaction.transaction_date >= start_datetime,
+                    Transaction.transaction_date <= end_datetime,
                     Transaction.is_deleted == False
                 )
             )
@@ -63,8 +68,8 @@ async def get_period_data(
                 and_(
                     Transaction.user_id == user_id,
                     Transaction.company_id == None,
-                    Transaction.transaction_date >= start_date,
-                    Transaction.transaction_date <= end_date,
+                    Transaction.transaction_date >= start_datetime,
+                    Transaction.transaction_date <= end_datetime,
                     Transaction.is_deleted == False
                 )
             )
