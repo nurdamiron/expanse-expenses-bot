@@ -56,6 +56,12 @@ async def process_receipt_photo(message: Message, state: FSMContext):
     logger.info(f"[PHOTO HANDLER] Photo count: {len(message.photo)}, File ID: {message.photo[-1].file_id if message.photo else 'None'}")
     logger.info(f"[PHOTO HANDLER] Caption: {caption}")
     
+    # Check if already processing
+    current_state = await state.get_state()
+    if current_state and "receipt" in str(current_state):
+        await message.answer("⏳ Пожалуйста, дождитесь завершения обработки предыдущего чека.")
+        return
+    
     # Clear any existing state to ensure fresh processing
     await state.clear()
     
@@ -1081,6 +1087,15 @@ async def process_description_request(message: Message, state: FSMContext):
         
         # Still can't determine category, ask user to choose
         await state.set_state(ReceiptStates.choosing_category)
+        
+        # Validate required data exists
+        if not data or 'amount' not in data:
+            await message.answer(
+                i18n.get("errors.invalid_state", locale, 
+                         default="❌ Произошла ошибка. Пожалуйста, попробуйте снова.")
+            )
+            await state.clear()
+            return
         
         # Show receipt info with description
         amount_formatted = expense_parser.format_amount(
