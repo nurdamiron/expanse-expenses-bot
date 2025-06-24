@@ -63,6 +63,9 @@ async def init_db():
             await conn.exec_driver_sql("PRAGMA synchronous=NORMAL")
             await conn.exec_driver_sql("PRAGMA timeout=20000")
             await conn.exec_driver_sql("PRAGMA busy_timeout=20000")
+            await conn.exec_driver_sql("PRAGMA cache_size=10000")
+            await conn.exec_driver_sql("PRAGMA temp_store=memory")
+            await conn.exec_driver_sql("PRAGMA mmap_size=268435456")  # 256MB
         
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
@@ -83,25 +86,25 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
     retry_delay = 0.1
     
     for attempt in range(max_retries + 1):
+        session = None
         try:
-            async with async_session_maker() as session:
-                try:
-                    yield session
-                    await session.commit()
-                    break  # Success, exit retry loop
-                except OperationalError as e:
-                    await session.rollback()
-                    if "database is locked" in str(e) and attempt < max_retries:
-                        await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
-                        continue
-                    raise
-                except Exception:
-                    await session.rollback()
-                    raise
-                finally:
-                    await session.close()
+            session = async_session_maker()
+            yield session
+            await session.commit()
+            return  # Success, exit retry loop
         except OperationalError as e:
+            if session:
+                await session.rollback()
             if "database is locked" in str(e) and attempt < max_retries:
-                await asyncio.sleep(retry_delay * (2 ** attempt))
+                if session:
+                    await session.close()
+                await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
                 continue
             raise
+        except Exception:
+            if session:
+                await session.rollback()
+            raise
+        finally:
+            if session:
+                await session.close()
