@@ -64,7 +64,7 @@ async def process_receipt_photo(message: Message, state: FSMContext):
         return
     
     # Set state immediately to prevent concurrent processing
-    await state.set_state(ReceiptStates.processing)
+    await state.set_state(ReceiptStates.processing_image)
     
     async with get_session() as session:
         user = await user_service.get_user_by_telegram_id(session, telegram_id)
