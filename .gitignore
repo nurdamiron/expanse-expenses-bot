@@ -186,9 +186,12 @@ aws-policy*.json
 *secrets*
 
 # Deployment scripts (contain sensitive info)
-deploy-*.sh
+deploy-*-old.sh
 update-*.sh
 EC2_DEPLOYMENT.md
+# Infrastructure config files
+infrastructure-config.json
+infrastructure-config.sh
 
 # SQLite database files
 *.db-shm
