@@ -178,3 +178,54 @@ FETCH_HEAD
 
 # EC2 deployment config
 .ec2_config
+
+# AWS credentials and keys
+*.pem
+aws-policy*.json
+*credentials*
+*secrets*
+
+# Deployment scripts (contain sensitive info)
+deploy-*.sh
+update-*.sh
+EC2_DEPLOYMENT.md
+
+# SQLite database files
+*.db-shm
+*.db-wal
+
+# Bot specific
+bot_logs/
+error_logs/
+receipts/
+exports/
+backups/
+media/
+static/
+
+# OCR test images
+test_images/
+sample_receipts/
+
+# User uploaded files
+user_uploads/
+
+# Generated documentation
+site/
+
+# Temporary Excel/CSV exports
+*.xlsx
+*.xls
+*.csv
+!sample_data/*.csv  # Allow sample data
+
+# Performance profiling
+*.prof
+*.stats
+
+# SSL certificates (except examples)
+*.crt
+*.key
+*.csr
+!examples/**/*.crt
+!examples/**/*.key
